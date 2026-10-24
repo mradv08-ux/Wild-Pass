@@ -207,7 +207,7 @@ function renderAuth() {
       ${forgot ? '<h2 style="margin:0">Recuperar contraseña</h2><div class="hint" style="margin:0">Te enviamos un email con un enlace para poner una nueva.</div>' : ''}
       ${signup ? '<label for="aName">Nombre<input id="aName" autocomplete="name" required maxlength="60" placeholder="Cómo quieres que te llamemos"></label>' : ''}
       <label for="aEmail">Email<input id="aEmail" type="email" autocomplete="email" required placeholder="tu@email.com"></label>
-      ${forgot ? '' : `<label for="aPass">Contraseña<input id="aPass" type="password" autocomplete="${signup ? 'new-password' : 'current-password'}" required minlength="8" placeholder="${signup ? 'Mínimo 8 caracteres' : ''}"></label>`}
+      ${forgot ? '' : `<label for="aPass">Contraseña${pwBox(`<input id="aPass" type="password" autocomplete="${signup ? 'new-password' : 'current-password'}" required minlength="8" placeholder="${signup ? 'Mínimo 8 caracteres' : ''}">`)}</label>`}
       ${signup ? `<label class="check" for="aAge"><input type="checkbox" id="aAge"> <span>Tengo 14 años o más</span></label>
         <div class="hint" style="margin-top:-6px">Si tienes menos, pide a tu padre, madre o tutor que cree la cuenta.</div>
         <label class="check" for="aLegal"><input type="checkbox" id="aLegal"> <span>Acepto las <a href="legal.html#bases" target="_blank" rel="noopener">bases del programa</a> y la <a href="legal.html#privacidad" target="_blank" rel="noopener">política de privacidad</a></span></label>` : ''}
@@ -250,7 +250,7 @@ async function submitAuth(f) {
 function showNewPassword() {
   $('#sheetHost').innerHTML = `<div class="sheet"><form class="box" id="fNewPass" role="dialog" aria-label="Nueva contraseña">
     <div style="font-family:var(--display);font-size:22px">Nueva contraseña</div>
-    <label for="npPass">Contraseña nueva<input id="npPass" type="password" minlength="8" required autocomplete="new-password" placeholder="Mínimo 8 caracteres"></label>
+    <label for="npPass">Contraseña nueva${pwBox('<input id="npPass" type="password" minlength="8" required autocomplete="new-password" placeholder="Mínimo 8 caracteres">')}</label>
     <button class="btn">Guardar contraseña</button></form></div>`;
 }
 
@@ -281,6 +281,10 @@ function render() {
   $('#view').innerHTML = (views[tab] || vPasaporte)();
   if (tab === 'pasaporte') animateBalance();
 }
+
+const EYE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+const EYE_OFF = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.9 17.9A10.4 10.4 0 0 1 12 19c-6.5 0-10-7-10-7a18 18 0 0 1 5.1-5.9M9.9 5.2A9.7 9.7 0 0 1 12 5c6.5 0 10 7 10 7a18 18 0 0 1-2.2 3.2M14.1 14.1a3 3 0 1 1-4.2-4.2M2 2l20 20"/></svg>';
+const pwBox = input => `<span class="pw">${input}<button type="button" class="pw-eye" data-pw="1" aria-label="Ver contraseña" aria-pressed="false">${EYE}</button></span>`;
 
 function evCard(v) {
   const e = earnById(v.earn_id) || { name: 'Actividad', price: 0, bonus: 0 };
@@ -867,6 +871,8 @@ document.addEventListener('click', async ev => {
   const d = b.dataset;
   if (d.auth) { authMode = d.auth; authMsg = null; renderAuth(); return; }
   if (d.close) return closeSheet();
+  if (d.pw) { const i = b.parentElement.querySelector('input'), show = i.type === 'password';
+    i.type = show ? 'text' : 'password'; b.innerHTML = show ? EYE_OFF : EYE; b.setAttribute('aria-pressed', show); b.setAttribute('aria-label', show ? 'Ocultar contraseña' : 'Ver contraseña'); i.focus(); return; }
   if (!D) return;
   if (d.tab) { tab = d.tab; confirmDel = false; pendingDel = null; render(); window.scrollTo(0, 0); if (tab === 'admin') openAdmin(); }
   else if (d.filter) { filter = d.filter; render(); }

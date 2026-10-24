@@ -252,3 +252,9 @@ a.btn{display:inline-block;text-decoration:none;text-align:center}
 .crop canvas{width:min(240px,70vw);aspect-ratio:1;border-radius:50%;touch-action:none;cursor:grab;border:3px solid var(--green);box-shadow:0 0 0 3px #fff,0 4px 12px rgba(0,163,44,.25)}
 .crop-zoom input{width:100%;accent-color:var(--flame)}
 .sheet .box{max-height:92vh;max-height:92dvh;overflow-y:auto}
+.pw{position:relative;display:block}
+.pw input{width:100%;padding-right:48px}
+.pw-eye{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:40px;height:40px;border:0;background:none;color:var(--muted);display:grid;place-items:center;border-radius:10px;cursor:pointer}
+.pw-eye svg{width:20px;height:20px}
+.pw-eye[aria-pressed=true]{color:var(--green-ink)}
+.pw-eye:focus-visible{outline:2px solid var(--gold)}

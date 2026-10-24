@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pasaporte Salvaje · The Wild Side</title>
+<meta name="description" content="El programa de fidelización de The Wild Side: gana Huellas en cada aventura y canjéalas por premios.">
+<meta name="theme-color" content="#00c837">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="img/icon-192.png">
+<link rel="apple-touch-icon" href="img/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Pasaporte">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Barlow:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="root">
+  <div class="loading"><div class="spinner"></div><div>Cargando tu pasaporte…</div></div>
+</div>
+
+<template id="tplApp">
+  <div class="app">
+    <header class="top">
+      <img src="img/logo.png" alt="Logo de The Wild Side">
+      <div><div class="brand">Pasaporte Salvaje</div><div class="sub">The Wild Side</div></div>
+      <div class="right"><span class="mode-pill admin" id="modePill" hidden>Modo equipo</span><button class="prof-btn" data-tab="perfil" id="profBtn" aria-label="Mi perfil"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg></button></div>
+    </header>
+    <main id="view"></main>
+  </div>
+  <nav class="nav" aria-label="Secciones"><div class="in" id="nav"></div></nav>
+</template>
+
+<div class="toast" id="toast" role="status" aria-live="polite"><div class="big" id="toastBig"></div><div id="toastTxt"></div></div>
+<div id="sheetHost"></div>
+<div id="celebHost"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

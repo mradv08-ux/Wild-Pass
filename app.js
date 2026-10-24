@@ -284,12 +284,12 @@ function render() {
 
 function evCard(v) {
   const e = earnById(v.earn_id) || { name: 'Actividad', price: 0, bonus: 0 };
-  const left = Math.max(0, v.spots - v.taken), [, m, d] = v.day.split('-').map(Number);
-  const st = left <= 0 ? '<span class="spots full">Completo</span>' : left <= 5 ? `<span class="spots few">Últimas ${left} plaza${left > 1 ? 's' : ''}</span>` : `<span class="spots">${left} plazas libres</span>`;
+  const left = Math.max(0, v.spots - v.taken), [, m, d] = v.day.split('-').map(Number), open = v.spots >= 999;
+  const st = open ? '<span class="spots">Entrada libre</span>' : left <= 0 ? '<span class="spots full">Completo</span>' : left <= 5 ? `<span class="spots few">Últimas ${left} plaza${left > 1 ? 's' : ''}</span>` : `<span class="spots">${left} plazas libres</span>`;
   return `<div class="event"><div class="ev-date"><b>${d}</b><span>${MONTHS[m - 1]}</span></div>
     <div class="info"><div class="t">${esc(v.title || e.name)}</div><div class="d">${wday(v.day)} · ${esc(v.start_time)} · ${esc(v.place)}</div>
     <div class="ev-meta">${st}<span class="cost">+${fmt(earnValue(e))}</span></div></div>
-    <button class="btn small" data-book="${esc(v.id)}" ${left <= 0 ? 'disabled' : ''}>${left <= 0 ? 'Completo' : 'Reservar'}</button></div>`;
+    <button class="btn small" data-book="${esc(v.id)}" ${!open && left <= 0 ? 'disabled' : ''}>${open ? 'Info' : left <= 0 ? 'Completo' : 'Reservar'}</button></div>`;
 }
 
 function nextReward() {
@@ -495,6 +495,7 @@ function vAdmin() {
     <label for="vPlace">Lugar<input id="vPlace" required placeholder="Ej.: Sierra de Aracena" value="${esc(eV ? eV.place : '')}"></label>
     <div class="row2"><label for="vSpots">Plazas<input id="vSpots" type="number" min="1" value="${eV ? eV.spots : 15}"></label>
     <label for="vTaken">Ya reservadas<input id="vTaken" type="number" min="0" value="${eV ? eV.taken : 0}"></label></div>
+    <div class="hint">Para un evento abierto sin reserva (como el pasaje), pon 999 plazas: saldrá como «Entrada libre».</div>
     <div class="row-btns">${eV ? '<button type="button" class="btn ghost" data-cancel="events">Cancelar</button>' : ''}<button class="btn">${eV ? 'Guardar cambios' : 'Añadir a la agenda'}</button></div>
   </form>
   <div class="stack">${D.events.map(v => `<div class="item${v.day < today() ? ' done' : ''}"><div class="info"><div class="t">${esc(v.title || (earnById(v.earn_id) || {}).name || '')}</div><div class="d">${fdate(v.day)} · ${esc(v.start_time)} · ${v.taken}/${v.spots} plazas${v.day < today() ? ' · ya pasó' : ''}</div></div><div class="acts">${editBtn('events', v.id)}${delBtn('events', v.id)}</div></div>`).join('')}</div>
@@ -582,7 +583,7 @@ function vAdmin() {
   <div class="stack">${(D.team || []).map(t => `<div class="item"><div class="info"><div class="t">${esc(t.name)}</div><div class="d">${esc(t.code)} · ${t.admin ? 'Jefe' : 'Monitor'}</div></div></div>`).join('') || '<div class="hint">Todavía no hay monitores.</div>'}</div>`;
   const monitorAgenda = `
   <h3>Próximas fechas</h3>
-  <div class="stack">${upcoming().map(v => `<div class="item"><div class="info"><div class="t">${esc(v.title || (earnById(v.earn_id) || {}).name || '')}</div><div class="d">${wday(v.day)} ${fdate(v.day)} · ${esc(v.start_time)} · ${esc(v.place)} · ${v.taken}/${v.spots} plazas</div></div></div>`).join('') || '<div class="hint">No hay fechas programadas.</div>'}</div>
+  <div class="stack">${upcoming().map(v => `<div class="item"><div class="info"><div class="t">${esc(v.title || (earnById(v.earn_id) || {}).name || '')}</div><div class="d">${wday(v.day)} ${fdate(v.day)} · ${esc(v.start_time)} · ${esc(v.place)} · ${v.spots >= 999 ? 'entrada libre' : `${v.taken}/${v.spots} plazas`}</div></div></div>`).join('') || '<div class="hint">No hay fechas programadas.</div>'}</div>
   <div class="hint" style="margin-top:12px">Los precios, la agenda, los premios y los datos de los clientes solo los gestiona el jefe.</div>`;
   return `<h2>${isAdmin() ? 'Zona del jefe' : 'Zona del monitor'}</h2>
 ` + (isAdmin() ? adminTop : '') + monitorPart + (isAdmin() ? adminRest : monitorAgenda);
@@ -688,12 +689,13 @@ function showBook(id) {
   const e = earnById(v.earn_id) || { name: '', price: 0 }, s = D.settings;
   sheet(`<div style="font-family:var(--display);font-size:22px">${esc(v.title || e.name)}</div>
     <div class="muted">${wday(v.day)} ${fdate(v.day)} · ${esc(v.start_time)} · ${esc(v.place)}${Number(e.price) ? ` · ${eur(e.price)} por persona` : ''}</div>
+    ${v.spots >= 999 ? `<div class="form-ok">Entrada libre${Number(e.price) ? '' : ' y gratuita'}: no hace falta reservar. Enseña tu QR al llegar y te sumamos tus Huellas.</div>` : ''}
     <div class="card stack" style="box-shadow:none;border:1px solid var(--line)">
-      <div>Reserva llamando o escribiendo a ${esc(s.contact_name)}:</div>
+      <div>${v.spots >= 999 ? 'Para cualquier duda, habla con' : 'Reserva llamando o escribiendo a'} ${esc(s.contact_name)}:</div>
       <div class="kv"><span>Teléfono / WhatsApp</span><b class="num sel">${esc(s.contact_phone)}</b></div>
       <div class="kv" style="border:0;padding:0"><span>Email</span><b class="sel">${esc(s.contact_email)}</b></div>
     </div>
-    <div class="hint" style="margin:0">Dile tu código <b class="num">${esc(me().code)}</b> al reservar.</div>
+    ${v.spots >= 999 ? '' : `<div class="hint" style="margin:0">Dile tu código <b class="num">${esc(me().code)}</b> al reservar.</div>`}
     <div class="row-btns"><button class="btn ghost" data-copy="${esc(s.contact_phone.replace(/\s/g, ''))}">Copiar teléfono</button><button class="btn" data-close="1">Cerrar</button></div>`);
 }
 

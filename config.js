@@ -1,8 +1,8 @@
-// Datos de tu proyecto de Supabase.
-// Los encuentras en Supabase > Project Settings > API.
-// Esta clave ("anon public") está pensada para ir en la app: los datos de
-// los clientes los protegen las reglas de la base de datos, no esta clave.
+// Conexión con el proyecto de Supabase «Wild Pass».
+// Esta clave (publishable) está pensada para ir dentro de la app y puede ser pública:
+// los datos de los clientes los protegen las reglas de la base de datos.
+// Nunca pongas aquí la clave secret ni la service_role.
 window.TWS_CONFIG = {
-  SUPABASE_URL: 'PEGA_AQUI_TU_PROJECT_URL',
-  SUPABASE_ANON_KEY: 'PEGA_AQUI_TU_ANON_PUBLIC_KEY'
+  SUPABASE_URL: 'https://vnrgnagsssooklbgqjbk.supabase.co',
+  SUPABASE_ANON_KEY: 'sb_publishable_jeqsUraKtzVDb9GGaU7ivQ_6gb9t-vw'
 };

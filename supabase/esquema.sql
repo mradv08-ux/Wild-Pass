@@ -582,6 +582,16 @@ insert into public.challenges (id, name, description, goal, track, reward, sort)
   ('c-manada', 'Trae a tu manada', 'Invita a un amigo y que haga su primera actividad', 1, 'amigo', 2000, 30)
 on conflict (id) do nothing;
 
+
+-- Ajustes de seguridad recomendados por el revisor de Supabase
+alter function public.madrid_today() set search_path = public;
+alter function public.fmt_num(numeric) set search_path = public;
+alter function public.fmt_eur(numeric) set search_path = public;
+alter function public.gen_code(int) set search_path = public;
+revoke execute on function public.is_staff() from public, anon;
+grant execute on function public.is_staff() to authenticated;
+revoke execute on function public.level_idx(uuid) from authenticated;
+
 -- =====================================================================
 --  Para hacerte del equipo (monitor), regístrate primero en la app y
 --  después ejecuta esto cambiando el email:

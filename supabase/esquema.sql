@@ -289,6 +289,7 @@ begin
 
   return r || jsonb_build_object('name', m.name,
                                  'balance', (select balance from profiles where id = m.id),
+                                 'avatar', m.avatar,
                                  'note', nota);
 end $$;
 
@@ -652,6 +653,46 @@ begin
 end $$;
 revoke execute on function public.admin_set_role(text, text) from public, anon;
 grant execute on function public.admin_set_role(text, text) to authenticated;
+
+
+-- ---------------------------------------------------------------------
+--  Foto de perfil (pequeña, en la propia base de datos) y bienvenida
+--  sin «vengo de otra empresa»
+-- ---------------------------------------------------------------------
+alter table public.profiles add column if not exists avatar text;
+
+create or replace function public.set_my_avatar(p_img text) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null then raise exception 'Inicia sesión'; end if;
+  if p_img is not null and (p_img not like 'data:image/jpeg;base64,%' or length(p_img) > 80000) then
+    raise exception 'La foto no es válida o es demasiado grande';
+  end if;
+  update profiles set avatar = p_img where id = auth.uid();
+end $$;
+revoke execute on function public.set_my_avatar(text) from public, anon;
+grant execute on function public.set_my_avatar(text) to authenticated;
+
+create or replace function public.finish_welcome(p_switch boolean) returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare p profiles; c text; regalo boolean := false;
+begin
+  select * into p from profiles where id = auth.uid() for update;
+  if not found then raise exception 'Inicia sesión'; end if;
+  if not p.welcome_given then
+    loop
+      c := gen_code(4);
+      exit when not exists (select 1 from redemptions where code = c);
+    end loop;
+    insert into redemptions (code, user_id, name, coupon)
+    values (c, p.id, (select welcome_coupon from settings where id = 1), true);
+    regalo := true;
+  end if;
+  update profiles set onboarded = true, welcome_given = true where id = p.id;
+  return jsonb_build_object('gift', regalo, 'coupon', c, 'floor', false);
+end $$;
+-- (staff_scan devuelve además 'avatar' para que el monitor vea la foto del cliente;
+--  ver la versión aplicada en el proyecto «wild_pass_8_foto_perfil_sin_otra_empresa».)
 
 -- =====================================================================
 --  Para hacerte JEFE, regístrate primero en la app y después ejecuta

@@ -37,6 +37,8 @@ const LOGO = 'img/logo.png';
 const pic = k => k || LOGO;
 const thumb = k => `<img class="thumb${k ? '' : ' logo'}" src="${esc(pic(k))}" alt="" loading="lazy">`;
 const $ = sel => document.querySelector(sel);
+const initial = n => esc((String(n || '?').trim()[0] || '?').toUpperCase());
+const avatarHTML = (p, cls) => p && p.avatar ? `<img class="${cls}" src="${esc(p.avatar)}" alt="">` : `<span class="${cls} avatar-ph">${initial(p && p.name)}</span>`;
 
 /* ---------- Estado ---------- */
 let session = null, bootedFor = null, D = null;
@@ -263,6 +265,7 @@ const ICONS = {
   admin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-2-1.2L14 3h-4l-.5 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6a7 7 0 0 0 0 2.4l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 2 1.2L10 21h4l.5-2.6a7 7 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6c.1-.4.1-.8.1-1.2z"/></svg>',
   cam: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h3l2-3h6l2 3h3v13H4z"/><circle cx="12" cy="13" r="4"/></svg>'
 };
+const PROFILE_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>';
 const tabs = () => [['pasaporte', 'Pasaporte'], ['ganar', 'Ganar'], ['premios', 'Premios'], ['retos', 'Retos']].concat(isStaff() ? [['admin', 'Equipo']] : []);
 
 function render() {
@@ -273,6 +276,7 @@ function render() {
   $('#modePill').hidden = tab !== 'admin';
   $('#modePill').textContent = isAdmin() ? 'Modo jefe' : 'Modo monitor';
   $('#profBtn').classList.toggle('on', tab === 'perfil');
+  $('#profBtn').innerHTML = me().avatar ? `<img src="${esc(me().avatar)}" alt="">` : PROFILE_ICON;
   const views = { pasaporte: vPasaporte, ganar: vGanar, premios: vPremios, retos: vRetos, admin: vAdmin, perfil: vPerfil };
   $('#view').innerHTML = (views[tab] || vPasaporte)();
   if (tab === 'pasaporte') animateBalance();
@@ -383,7 +387,16 @@ function vRetos() {
 function vPerfil() {
   const p = me(), s = D.settings;
   return `<h2>Mi perfil</h2>
-  <form class="adm card" id="fPerfil">
+  <div class="card avatar-row">
+    ${avatarHTML(p, 'avatar-lg')}
+    <div class="stack" style="gap:8px;min-width:0">
+      <b>Tu foto</b>
+      <span class="muted" style="font-size:13px">La verá el monitor al escanear tu QR, para comprobar que eres tú.</span>
+      <div class="row-btns" style="justify-content:flex-start"><button class="btn small" data-avatar="pick">${p.avatar ? 'Cambiar foto' : 'Poner foto'}</button>${p.avatar ? '<button class="btn small ghost" data-avatar="remove">Quitar</button>' : ''}</div>
+    </div>
+    <input type="file" id="avatarIn" accept="image/*" hidden>
+  </div>
+  <form class="adm card" id="fPerfil" style="margin-top:12px">
     <label for="pName">Nombre<input id="pName" value="${esc(p.name)}" required maxlength="60"></label>
     <div class="kv"><span>Email</span><b>${esc(p.email)}</b></div>
     ${p.birth ? `<div class="kv"><span>Fecha de nacimiento</span><b>${fdate(p.birth)}</b></div>
@@ -462,7 +475,7 @@ function vAdmin() {
     <label for="mInv">¿Le ha invitado alguien? (opcional)<input id="mInv" placeholder="Código de quien le invitó" autocomplete="off" autocapitalize="characters" style="text-transform:uppercase"></label>
     <div class="hint">La invitación solo cuenta en la primera actividad del cliente.</div>
     <button class="btn ghost">Sumar Huellas con el código escrito</button>
-    ${monMsg ? `<div class="mon-msg ${monMsg.ok ? 'ok' : 'err'}" role="status">${esc(monMsg.t)}</div>` : ''}
+    ${monMsg ? `<div class="mon-msg ${monMsg.ok ? 'ok' : 'err'}" role="status">${monMsg.ok ? `<div class="mon-who">${avatarHTML({ avatar: monMsg.img, name: monMsg.name }, 'avatar-md')}<span>${monMsg.img ? 'Comprueba que es la persona de la foto.' : 'Este cliente no tiene foto.'}</span></div>` : ''}${esc(monMsg.t)}</div>` : ''}
   </form>
 
   <h3>Entregar un premio</h3>
@@ -634,12 +647,11 @@ function showWelcome(i) {
     <img src="${LOGO}" alt="" class="wl-logo"><div class="celeb-k">Bienvenida a Wild Pass</div>
     <div class="celeb-seal step"><span>${w.big}</span></div><div class="celeb-name">${w.t}</div>
     <div class="muted" style="font-size:14px">${w.d}</div>
-    ${last ? `<label class="check" for="wlSwitch"><input type="checkbox" id="wlSwitch"> <span>Ya hago aventura con otra empresa</span></label><div class="hint">Si lo marcas, empiezas directamente en nivel ${esc(levels()[1] ? levels()[1].name : '')} durante un año.</div>` : ''}
     <div class="dots">${WELCOME.map((_, k) => `<i class="${k === i ? 'on' : ''}"></i>`).join('')}</div>
     <div class="row-btns" style="justify-content:center;width:100%">${last ? '' : '<button class="btn ghost" id="wlSkip">Saltar</button>'}<button class="btn" id="wlNext">${last ? (me().welcome_given ? 'Entendido' : 'Empezar y recibir mi regalo') : 'Siguiente'}</button></div>
   </div></div>`;
   const sk = $('#wlSkip'); if (sk) sk.onclick = () => showWelcome(WELCOME.length - 1);
-  $('#wlNext').onclick = () => { if (!last) return showWelcome(i + 1); finishWelcome($('#wlSwitch').checked); };
+  $('#wlNext').onclick = () => { if (!last) return showWelcome(i + 1); finishWelcome(false); };
 }
 async function finishWelcome(sw) {
   const btn = $('#wlNext'); btn.disabled = true;
@@ -662,6 +674,7 @@ function showMyQR() {
     <div style="font-family:var(--display);font-size:22px">Mi pasaporte</div>
     <div class="muted">Enséñaselo al monitor al empezar la actividad.</div>
     <div id="qrBox" class="qr-box"></div>
+    ${avatarHTML(p, 'avatar-md')}
     <div class="num" style="font-size:24px;font-weight:700;letter-spacing:.12em">${esc(p.code)}</div>
     <div class="muted" style="font-size:13px">${esc(p.name)} · nivel ${esc(levels()[levelIdx()].name)}</div>
     <button class="btn" data-close="1" style="width:100%">Cerrar</button></div>`);
@@ -723,7 +736,7 @@ async function doMonScan(code) {
     let t = `+${fmt(r.value)} Huellas para ${r.name}. Ahora tiene ${fmt(r.balance)}.`;
     (r.challenges || []).forEach(c => { t += ` Completa el reto «${c.name}» (+${fmt(c.reward)}).`; });
     if (r.note) t += ' ' + r.note;
-    monMsg = { ok: true, t };
+    monMsg = { ok: true, t, img: r.avatar || null, name: r.name };
     if (session && code === me().code) await load();
   } catch (e) { monMsg = { ok: false, t: e.message }; }
   render();
@@ -815,6 +828,8 @@ document.addEventListener('click', async ev => {
   else if (d.copy) copyText(d.copy);
   else if (d.export) { b.disabled = true; try { await exportData(d.export); } catch (e) { toast('No se ha podido descargar', e.message, true); } b.disabled = false; }
   else if (d.welcome) showWelcome(0);
+  else if (d.avatar === 'pick') { const i = $('#avatarIn'); if (i) i.click(); }
+  else if (d.avatar === 'remove') { try { await rpc('set_my_avatar', { p_img: null }); await load(); render(); toast('Foto quitada', 'Ya no tienes foto de perfil'); } catch (e) { toast('No se ha podido quitar', e.message, true); } }
   else if (d.cam === 'mon') openScanner(code => { $('#mCode').value = code; doMonScan(code); });
   else if (d.cam === 'canje') openScanner(code => { $('#cjCode').value = code; doCanje(code); });
   else if (d.edit) { const [t, id] = d.edit.split(':'); editing[t] = id; render(); const h = document.getElementById(FORM_OF[t]); if (h) h.scrollIntoView({ block: 'start' }); }
@@ -831,6 +846,14 @@ document.addEventListener('click', async ev => {
     else if (d.delacc === 'no') { confirmDel = false; render(); }
     else { b.disabled = true; try { await rpc('delete_my_account'); await sb.auth.signOut(); } catch (e) { toast('No se ha podido borrar', e.message, true); b.disabled = false; } }
   }
+});
+
+document.addEventListener('change', async ev => {
+  if (ev.target.id !== 'avatarIn' || !D) return;
+  const img = await readPhoto(ev.target, 240, 240);
+  if (!img) return toast('No se ha podido leer la foto', 'Prueba con otra imagen', true);
+  try { await rpc('set_my_avatar', { p_img: img }); await load(); render(); toast('Foto guardada', 'Así te verá el monitor'); }
+  catch (e) { toast('No se ha podido guardar', e.message, true); }
 });
 
 document.addEventListener('submit', async ev => {

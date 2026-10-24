@@ -233,3 +233,13 @@ label.check a{color:var(--green-ink)}
 .offline{position:fixed;left:0;right:0;top:0;z-index:70;background:var(--flame);color:#fff;text-align:center;font-size:13px;font-weight:700;padding:calc(6px + env(safe-area-inset-top,0px)) 16px 6px}
 a.btn{display:inline-block;text-decoration:none;text-align:center}
 .toast.word .big{font-family:var(--body);font-size:18px;line-height:1.3}
+
+/* Foto de perfil */
+.prof-btn img{width:40px;height:40px;border-radius:50%;object-fit:cover;display:block}
+.avatar-row{display:flex;align-items:center;gap:16px}
+.avatar-lg,.avatar-md{border-radius:50%;object-fit:cover;flex:none;border:3px solid var(--green);box-shadow:0 0 0 3px #fff,0 4px 12px rgba(0,163,44,.25)}
+.avatar-lg{width:96px;height:96px}
+.avatar-md{width:64px;height:64px}
+.avatar-ph{display:grid;place-items:center;background:linear-gradient(160deg,var(--green),var(--green-deep));color:#fff;font-family:var(--display);font-size:32px}
+.avatar-md.avatar-ph{font-size:24px}
+.mon-who{display:flex;align-items:center;gap:12px;margin-bottom:8px;font-weight:600}

@@ -99,6 +99,7 @@ Queda con el icono de The Wild Side y se abre a pantalla completa, como una app.
 - **Si alguien viene invitado:** antes de escanear, escribe el código de quien le invitó. Solo cuenta en la primera actividad del invitado.
 - **Para entregar un premio:** **Equipo › Entregar un premio**, escanea el código de canje del cliente y entrega lo que indique.
 - **Seguridad:** solo las cuentas del equipo pueden sumar Huellas o entregar premios. Una misma actividad no suma dos veces el mismo día a la misma persona.
+- **Copia de seguridad (una vez al mes):** **Equipo › Copia de seguridad** y descarga los tres archivos (socios y saldos, movimientos y canjes). Se abren con Excel. Guárdalos en un sitio seguro y privado, porque llevan datos personales. El plan gratuito de Supabase no hace copias automáticas.
 
 ---
 

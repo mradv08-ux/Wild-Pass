@@ -443,6 +443,16 @@ function vAdmin() {
     <div class="stat"><b style="font-size:15px;font-family:var(--body)">${esc(st.top || '—')}</b><span>lo más popular (90 días)</span></div>
   </div>` : '<div class="hint">Cargando números…</div>'}
 
+  <h3>Copia de seguridad</h3>
+  <div class="card stack">
+    <div class="hint" style="margin:0">El plan gratuito de Supabase no guarda copias automáticas. Descarga los datos al menos una vez al mes y guárdalos en un sitio seguro: contienen datos personales de tus clientes.</div>
+    <div class="row-btns" style="justify-content:flex-start">
+      <button class="btn small" data-export="socios">Socios y saldos</button>
+      <button class="btn small ghost" data-export="movimientos">Movimientos</button>
+      <button class="btn small ghost" data-export="canjes">Canjes</button>
+    </div>
+  </div>
+
   <h3>Registrar asistencia</h3>
   <form class="adm card" id="fMon">
     <label for="mAct">Actividad de hoy<select id="mAct">${acts.map(e => opt(e.id, monAct, e.name)).join('')}</select></label>
@@ -705,6 +715,50 @@ async function doCanje(code) {
   render();
 }
 
+/* ---------- Copia de seguridad (equipo) ---------- */
+async function fetchAll(table, cols, orderCol) {
+  const out = [];
+  for (let from = 0; ; from += 1000) {
+    const rows = await q(sb.from(table).select(cols).order(orderCol).range(from, from + 999));
+    out.push(...rows);
+    if (rows.length < 1000) break;
+  }
+  return out;
+}
+function toCsv(rows) {
+  const cell = v => { v = v == null ? '' : String(v); return /[";\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+  return '\ufeff' + rows.map(r => r.map(cell).join(';')).join('\r\n');
+}
+function download(name, text) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type: 'text/csv;charset=utf-8' }));
+  a.download = name; document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+}
+async function exportData(kind) {
+  const t = today();
+  const prof = await fetchAll('profiles', 'id,code,name,email,role,balance,total,since,birth', 'created_at');
+  const byId = Object.fromEntries(prof.map(p => [p.id, p]));
+  const who = id => byId[id] || { code: '', name: '(cuenta borrada)' };
+  let rows, name;
+  if (kind === 'socios') {
+    name = `socios-${t}.csv`;
+    rows = [['Código', 'Nombre', 'Email', 'Tipo', 'Huellas', 'Salidas', 'Socio desde', 'Nacimiento'],
+      ...prof.map(p => [p.code, p.name, p.email, p.role === 'staff' ? 'Equipo' : 'Cliente', p.balance, p.total, p.since, p.birth || ''])];
+  } else if (kind === 'movimientos') {
+    name = `movimientos-${t}.csv`;
+    const ms = await fetchAll('movements', 'user_id,text,amount,day', 'id');
+    rows = [['Fecha', 'Código', 'Nombre', 'Concepto', 'Huellas'], ...ms.map(m => [m.day, who(m.user_id).code, who(m.user_id).name, m.text, m.amount])];
+  } else {
+    name = `canjes-${t}.csv`;
+    const rs = await fetchAll('redemptions', 'user_id,code,name,coupon,used,created_day,used_day', 'id');
+    rows = [['Fecha', 'Código socio', 'Nombre', 'Premio', 'Código canje', 'Tipo', 'Entregado', 'Fecha entrega'],
+      ...rs.map(r => [r.created_day, who(r.user_id).code, who(r.user_id).name, r.name, r.code, r.coupon ? 'Cupón de bienvenida' : 'Canje', r.used ? 'Sí' : 'No', r.used_day || ''])];
+  }
+  download(name, toCsv(rows));
+  toast('Descargado', `${name} (${rows.length - 1} filas)`);
+}
+
 /* ---------- Utilidades ---------- */
 function copyText(txt) {
   try { navigator.clipboard.writeText(txt).then(() => toast('Copiado', txt.length > 40 ? 'Ya puedes pegarlo donde quieras' : txt), () => toast('No se pudo copiar', 'Selecciona el texto y cópialo a mano', true)); }
@@ -738,6 +792,7 @@ document.addEventListener('click', async ev => {
   else if (d.myqr) showMyQR();
   else if (d.book) showBook(d.book);
   else if (d.copy) copyText(d.copy);
+  else if (d.export) { b.disabled = true; try { await exportData(d.export); } catch (e) { toast('No se ha podido descargar', e.message, true); } b.disabled = false; }
   else if (d.welcome) showWelcome(0);
   else if (d.cam === 'mon') openScanner(code => { $('#mCode').value = code; doMonScan(code); });
   else if (d.cam === 'canje') openScanner(code => { $('#cjCode').value = code; doCanje(code); });

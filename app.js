@@ -286,7 +286,8 @@ function evCard(v) {
   const e = earnById(v.earn_id) || { name: 'Actividad', price: 0, bonus: 0 };
   const left = Math.max(0, v.spots - v.taken), [, m, d] = v.day.split('-').map(Number), open = v.spots >= 999;
   const st = open ? '<span class="spots">Entrada libre</span>' : left <= 0 ? '<span class="spots full">Completo</span>' : left <= 5 ? `<span class="spots few">Últimas ${left} plaza${left > 1 ? 's' : ''}</span>` : `<span class="spots">${left} plazas libres</span>`;
-  return `<div class="event"><div class="ev-date"><b>${d}</b><span>${MONTHS[m - 1]}</span></div>
+  const im = v.img || e.img;
+  return `<div class="event"><div class="ev-date${im ? ' pic' : ''}">${im ? `<img src="${esc(im)}" alt="">` : ''}<b>${d}</b><span>${MONTHS[m - 1]}</span></div>
     <div class="info"><div class="t">${esc(v.title || e.name)}</div><div class="d">${wday(v.day)} · ${esc(v.start_time)} · ${esc(v.place)}</div>
     <div class="ev-meta">${st}<span class="cost">+${fmt(earnValue(e))}</span></div></div>
     <button class="btn small" data-book="${esc(v.id)}" ${!open && left <= 0 ? 'disabled' : ''}>${open ? 'Info' : left <= 0 ? 'Completo' : 'Reservar'}</button></div>`;
@@ -496,6 +497,8 @@ function vAdmin() {
     <div class="row2"><label for="vSpots">Plazas<input id="vSpots" type="number" min="1" value="${eV ? eV.spots : 15}"></label>
     <label for="vTaken">Ya reservadas<input id="vTaken" type="number" min="0" value="${eV ? eV.taken : 0}"></label></div>
     <div class="hint">Para un evento abierto sin reserva (como el pasaje), pon 999 plazas: saldrá como «Entrada libre».</div>
+    <label for="vImg">Cartel (opcional${eV && eV.img ? ', ya tiene uno' : ''})<input id="vImg" type="file" accept="image/*"></label>
+    <div class="hint">Si no subes cartel, se usa la foto de la actividad.</div>
     <div class="row-btns">${eV ? '<button type="button" class="btn ghost" data-cancel="events">Cancelar</button>' : ''}<button class="btn">${eV ? 'Guardar cambios' : 'Añadir a la agenda'}</button></div>
   </form>
   <div class="stack">${D.events.map(v => `<div class="item${v.day < today() ? ' done' : ''}"><div class="info"><div class="t">${esc(v.title || (earnById(v.earn_id) || {}).name || '')}</div><div class="d">${fdate(v.day)} · ${esc(v.start_time)} · ${v.taken}/${v.spots} plazas${v.day < today() ? ' · ya pasó' : ''}</div></div><div class="acts">${editBtn('events', v.id)}${delBtn('events', v.id)}</div></div>`).join('')}</div>
@@ -686,8 +689,8 @@ function showMyQR() {
 
 function showBook(id) {
   const v = D.events.find(x => x.id === id); if (!v) return;
-  const e = earnById(v.earn_id) || { name: '', price: 0 }, s = D.settings;
-  sheet(`<div style="font-family:var(--display);font-size:22px">${esc(v.title || e.name)}</div>
+  const e = earnById(v.earn_id) || { name: '', price: 0 }, s = D.settings, im = v.img || e.img;
+  sheet(`${im ? `<img class="ev-poster" src="${esc(im)}" alt="Cartel de ${esc(v.title || e.name)}">` : ''}<div style="font-family:var(--display);font-size:22px">${esc(v.title || e.name)}</div>
     <div class="muted">${wday(v.day)} ${fdate(v.day)} · ${esc(v.start_time)} · ${esc(v.place)}${Number(e.price) ? ` · ${eur(e.price)} por persona` : ''}</div>
     ${v.spots >= 999 ? `<div class="form-ok">Entrada libre${Number(e.price) ? '' : ' y gratuita'}: no hace falta reservar. Enseña tu QR al llegar y te sumamos tus Huellas.</div>` : ''}
     <div class="card stack" style="box-shadow:none;border:1px solid var(--line)">
@@ -800,16 +803,59 @@ function copyText(txt) {
   try { navigator.clipboard.writeText(txt).then(() => toast('Copiado', txt.length > 40 ? 'Ya puedes pegarlo donde quieras' : txt), () => toast('No se pudo copiar', 'Selecciona el texto y cópialo a mano', true)); }
   catch (e) { toast('No se pudo copiar', 'Selecciona el texto y cópialo a mano', true); }
 }
-function readPhoto(input, w = 160, h = 160) {
+function loadImage(input) {
   const file = input && input.files && input.files[0]; if (!file) return Promise.resolve(undefined);
   return new Promise(res => {
     const fr = new FileReader();
-    fr.onload = () => { const im = new Image(); im.onload = () => { const c = document.createElement('canvas'); c.width = w; c.height = h;
-      const sc = Math.max(w / im.width, h / im.height), sw = w / sc, sh = h / sc;
-      c.getContext('2d').drawImage(im, (im.width - sw) / 2, (im.height - sh) / 2, sw, sh, 0, 0, w, h); res(c.toDataURL('image/jpeg', .82)); };
-      im.onerror = () => res(undefined); im.src = fr.result; };
+    fr.onload = () => { const im = new Image(); im.onload = () => res(im); im.onerror = () => res(undefined); im.src = fr.result; };
     fr.onerror = () => res(undefined); fr.readAsDataURL(file);
   });
+}
+// fit = true: mantiene la forma de la foto (sin recortar), como máximo w x h.
+async function readPhoto(input, w = 160, h = 160, fit = false) {
+  const im = await loadImage(input); if (!im) return undefined;
+  const c = document.createElement('canvas');
+  if (fit) { const sc = Math.min(1, w / im.width, h / im.height); c.width = Math.round(im.width * sc); c.height = Math.round(im.height * sc); c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); }
+  else { c.width = w; c.height = h; const sc = Math.max(w / im.width, h / im.height), sw = w / sc, sh = h / sc;
+    c.getContext('2d').drawImage(im, (im.width - sw) / 2, (im.height - sh) / 2, sw, sh, 0, 0, w, h); }
+  return c.toDataURL('image/jpeg', .8);
+}
+
+/* Editor de la foto de perfil: arrastra para colocar y amplía con la barra. */
+function openAvatarEditor(im) {
+  const V = 240; // tamaño del círculo y de la foto final
+  const base = Math.max(V / im.width, V / im.height);
+  let z = 1, x = 0, y = 0; // desplazamiento del centro en píxeles de pantalla
+  sheet(`<div style="font-family:var(--display);font-size:22px">Coloca tu foto</div>
+    <div class="muted">Arrastra la foto para centrar tu cara y usa la barra para acercar.</div>
+    <div class="crop"><canvas id="cropC" width="${V * 2}" height="${V * 2}" aria-label="Vista previa de tu foto"></canvas></div>
+    <label for="cropZ" class="crop-zoom">Acercar<input id="cropZ" type="range" min="1" max="4" step="0.01" value="1"></label>
+    <div class="row-btns"><button class="btn ghost" data-close="1">Cancelar</button><button class="btn" id="cropOk">Guardar foto</button></div>`);
+  const cv = $('#cropC'), ctx = cv.getContext('2d');
+  const clamp = () => { const s = base * z, mx = Math.max(0, (im.width * s - V) / 2), my = Math.max(0, (im.height * s - V) / 2);
+    x = Math.min(mx, Math.max(-mx, x)); y = Math.min(my, Math.max(-my, y)); };
+  const draw = (c, size) => { const k = size / V, s = base * z * k, g = c.getContext('2d');
+    g.fillStyle = '#fff'; g.fillRect(0, 0, size, size);
+    g.drawImage(im, size / 2 - im.width * s / 2 + x * k, size / 2 - im.height * s / 2 + y * k, im.width * s, im.height * s); };
+  const paint = () => { clamp(); draw(cv, cv.width); };
+  paint();
+  let drag = null, pts = new Map(), pinch = null;
+  cv.addEventListener('pointerdown', e => { cv.setPointerCapture(e.pointerId); pts.set(e.pointerId, [e.clientX, e.clientY]); drag = [e.clientX, e.clientY, x, y];
+    if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch = [Math.hypot(a[0] - b[0], a[1] - b[1]), z]; } });
+  cv.addEventListener('pointermove', e => { if (!pts.has(e.pointerId)) return; pts.set(e.pointerId, [e.clientX, e.clientY]);
+    const r = V / cv.getBoundingClientRect().width;
+    if (pts.size === 2 && pinch) { const [a, b] = [...pts.values()]; z = Math.min(4, Math.max(1, pinch[1] * Math.hypot(a[0] - b[0], a[1] - b[1]) / pinch[0])); $('#cropZ').value = z; }
+    else if (drag) { x = drag[2] + (e.clientX - drag[0]) * r; y = drag[3] + (e.clientY - drag[1]) * r; }
+    paint(); });
+  const up = e => { pts.delete(e.pointerId); pinch = null; if (pts.size === 1) { const [p] = [...pts.values()]; drag = [p[0], p[1], x, y]; } else drag = null; };
+  cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+  $('#cropZ').addEventListener('input', e => { z = +e.target.value; paint(); });
+  $('#cropOk').onclick = async () => {
+    $('#cropOk').disabled = true;
+    const out = document.createElement('canvas'); out.width = out.height = V; draw(out, V);
+    try { await rpc('set_my_avatar', { p_img: out.toDataURL('image/jpeg', .85) }); closeSheet(); await load(); render(); toast('Foto guardada', 'Así te verá el monitor'); }
+    catch (e) { $('#cropOk').disabled = false; toast('No se ha podido guardar', e.message, true); }
+  };
 }
 const val = (f, s) => f.querySelector(s).value;
 
@@ -852,10 +898,9 @@ document.addEventListener('click', async ev => {
 
 document.addEventListener('change', async ev => {
   if (ev.target.id !== 'avatarIn' || !D) return;
-  const img = await readPhoto(ev.target, 240, 240);
-  if (!img) return toast('No se ha podido leer la foto', 'Prueba con otra imagen', true);
-  try { await rpc('set_my_avatar', { p_img: img }); await load(); render(); toast('Foto guardada', 'Así te verá el monitor'); }
-  catch (e) { toast('No se ha podido guardar', e.message, true); }
+  const im = await loadImage(ev.target); ev.target.value = '';
+  if (!im) return toast('No se ha podido leer la foto', 'Prueba con otra imagen', true);
+  openAvatarEditor(im);
 });
 
 document.addEventListener('submit', async ev => {
@@ -881,6 +926,7 @@ document.addEventListener('submit', async ev => {
     else if (f.id === 'fEvent') {
       const spots = Math.max(1, +val(f, '#vSpots') || 1), taken = Math.min(spots, Math.max(0, +val(f, '#vTaken') || 0));
       const data = { earn_id: val(f, '#vEarn'), title: val(f, '#vTitle').trim(), day: val(f, '#vDate'), start_time: val(f, '#vTime'), place: val(f, '#vPlace').trim(), spots, taken };
+      const vi = await readPhoto(f.querySelector('#vImg'), 600, 900, true); if (vi) data.img = vi;
       if (editing.events) await q(sb.from('events').update(data).eq('id', editing.events)); else await q(sb.from('events').insert(data));
       editing.events = null; toast('Guardado', 'La agenda está actualizada');
     }

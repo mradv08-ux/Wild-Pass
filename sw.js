@@ -1,6 +1,6 @@
 // Guarda la app en el móvil para que abra rápido y funcione con mala cobertura.
 // Sube el número de VERSION cada vez que publiques cambios.
-const VERSION = 'tws-v6';
+const VERSION = 'tws-v7';
 const SHELL = ['./', 'index.html', 'styles.css', 'app.js', 'config.js', 'manifest.webmanifest', 'img/logo.png', 'img/icon-192.png'];
 
 self.addEventListener('install', e => {

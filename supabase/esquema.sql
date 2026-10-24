@@ -702,3 +702,6 @@ end $$;
 --
 --  Los monitores se gestionan desde la app: Equipo › Tu equipo.
 -- =====================================================================
+
+-- v9: cartel opcional por fecha de la agenda
+alter table public.events add column if not exists img text;

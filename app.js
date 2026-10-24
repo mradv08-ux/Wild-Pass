@@ -1,6 +1,6 @@
 'use strict';
 /* =====================================================================
-   Pasaporte Salvaje · The Wild Side
+   Wild Pass · The Wild Side
    App de fidelización conectada a Supabase.
    ===================================================================== */
 
@@ -197,7 +197,7 @@ function renderSetup() {
 function renderAuth() {
   const login = authMode === 'login', signup = authMode === 'signup', forgot = authMode === 'forgot';
   $('#root').innerHTML = `<div class="auth">
-    <div class="auth-head"><img src="${LOGO}" alt="Logo de The Wild Side"><div class="brand">Pasaporte Salvaje</div>
+    <div class="auth-head"><img src="${LOGO}" alt="Logo de The Wild Side"><div class="brand">Wild Pass</div>
       <div class="sub">Gana Huellas en cada aventura con The Wild Side y canjéalas por premios.</div></div>
     ${forgot ? '' : `<div class="seg"><button class="${login ? 'on' : ''}" data-auth="login">Entrar</button><button class="${signup ? 'on' : ''}" data-auth="signup">Crear cuenta</button></div>`}
     <form class="card" id="fAuth" novalidate>
@@ -610,7 +610,7 @@ const WELCOME = [
 function showWelcome(i) {
   const host = $('#celebHost'), w = WELCOME[i], last = i === WELCOME.length - 1;
   host.innerHTML = `<div class="celeb welcome" role="dialog" aria-label="Bienvenida"><div class="celeb-box">
-    <img src="${LOGO}" alt="" class="wl-logo"><div class="celeb-k">Bienvenida al Pasaporte Salvaje</div>
+    <img src="${LOGO}" alt="" class="wl-logo"><div class="celeb-k">Bienvenida a Wild Pass</div>
     <div class="celeb-seal step"><span>${w.big}</span></div><div class="celeb-name">${w.t}</div>
     <div class="muted" style="font-size:14px">${w.d}</div>
     ${last ? `<label class="check" for="wlSwitch"><input type="checkbox" id="wlSwitch"> <span>Ya hago aventura con otra empresa</span></label><div class="hint">Si lo marcas, empiezas directamente en nivel ${esc(levels()[1] ? levels()[1].name : '')} durante un año.</div>` : ''}

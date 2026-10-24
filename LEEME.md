@@ -1,4 +1,4 @@
-# Pasaporte Salvaje · The Wild Side
+# Wild Pass · The Wild Side
 
 App de fidelización de The Wild Side. Los clientes ganan Huellas en cada aventura, suben de nivel, consiguen sellos y canjean premios. El equipo registra asistencias escaneando el QR del cliente.
 
@@ -15,7 +15,7 @@ Todo funciona con servicios gratuitos:
 
 1. Entra en [supabase.com](https://supabase.com) y pulsa **Start your project**. Puedes entrar con tu cuenta de GitHub.
 2. Pulsa **New project** y rellena:
-   - **Name:** `pasaporte-salvaje`
+   - **Name:** `wild-pass`
    - **Database Password:** inventa una contraseña larga y guárdala en un sitio seguro.
    - **Region:** una de Europa, por ejemplo **Central EU (Frankfurt)** o **West EU (Ireland)**. Es importante por la ley de protección de datos.
    - **Plan:** Free.
@@ -38,7 +38,7 @@ En **Authentication**:
    - Desactiva **Confirm email** de momento. El correo que trae Supabase de serie solo envía a los miembros de tu equipo de Supabase y como mucho 2 emails por hora; si lo dejas activado, tus clientes no recibirán el email de confirmación y no podrán entrar. Cuando configuremos un servicio de correo gratuito (ver «Pendiente para más adelante»), se vuelve a activar.
    - Si aparece **Minimum password length**, ponlo en **8**.
 2. **URL Configuration**:
-   - **Site URL:** la dirección de la app, por ejemplo `https://TU-USUARIO.github.io/pasaporte-salvaje/`
+   - **Site URL:** la dirección de la app, por ejemplo `https://TU-USUARIO.github.io/wild-pass/`
    - En **Redirect URLs**, añade esa misma dirección.
 
 ### 4. Conectar la app con Supabase
@@ -52,10 +52,10 @@ Esta clave está pensada para ir dentro de la app y puede ser pública. **Nunca 
 
 ### 5. Publicar en GitHub Pages
 
-1. Sube todos los archivos de esta carpeta a un repositorio de GitHub llamado `pasaporte-salvaje` (público).
+1. Sube todos los archivos de esta carpeta a un repositorio de GitHub llamado `wild-pass` (público).
 2. En el repositorio, entra en **Settings › Pages**.
 3. En **Source** elige **Deploy from a branch**, rama **main** y carpeta **/ (root)**. Guarda.
-4. En un par de minutos la app estará en `https://TU-USUARIO.github.io/pasaporte-salvaje/`.
+4. En un par de minutos la app estará en `https://TU-USUARIO.github.io/wild-pass/`.
 
 ### 6. Hacerte del equipo
 

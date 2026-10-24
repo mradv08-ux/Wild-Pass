@@ -1,5 +1,5 @@
 -- =====================================================================
---  Pasaporte Salvaje · The Wild Side
+--  Wild Pass · The Wild Side
 --  Base de datos para Supabase.
 --  Cómo usarlo: Supabase > SQL Editor > New query > pega TODO este
 --  archivo > Run. Solo hay que hacerlo una vez.

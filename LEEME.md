@@ -57,18 +57,31 @@ Esta clave está pensada para ir dentro de la app y puede ser pública. **Nunca 
 3. En **Source** elige **Deploy from a branch**, rama **main** y carpeta **/ (root)**. Guarda.
 4. En un par de minutos la app estará en `https://TU-USUARIO.github.io/wild-pass/`.
 
-### 6. Hacerte del equipo
+### 6. Jefe y monitores
+
+Hay dos tipos de acceso para el equipo:
+
+| | Jefe | Monitor |
+| --- | --- | --- |
+| Registrar asistencias y entregar premios | Sí | Sí |
+| Ver las próximas fechas | Sí | Sí |
+| Cambiar precios, agenda, premios, retos, niveles, temporada y contacto | Sí | No |
+| Ver los números del programa y los datos de los clientes | Sí | No |
+| Descargar las copias de seguridad | Sí | No |
+| Dar o quitar acceso a monitores | Sí | No |
+
+**Hacerte jefe (una sola vez):**
 
 1. Abre la app y **crea tu cuenta** con tu email.
 2. En Supabase, entra en **SQL Editor › New query**, pega esto cambiando el email y pulsa **Run**:
 
    ```sql
-   update public.profiles set role = 'staff' where email = 'tu-email@ejemplo.com';
+   update public.profiles set role = 'staff', admin = true where email = 'tu-email@ejemplo.com';
    ```
 
-3. Recarga la app: aparecerá la pestaña **Equipo**.
+3. Recarga la app: aparecerá la pestaña **Equipo** en modo jefe.
 
-Haz lo mismo con cada monitor. Para quitarle el acceso a alguien, cambia `'staff'` por `'client'`.
+**Añadir un monitor:** el trabajador se crea una cuenta en la app y te da su código (lo ve en su **Perfil**). Tú entras en **Equipo › Tu equipo**, escribes su código, eliges **Hacer monitor** y guardas. Para quitarle el acceso, lo mismo con **Quitar del equipo**.
 
 ### 7. Antes de anunciarla
 

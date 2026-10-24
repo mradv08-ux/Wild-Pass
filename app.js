@@ -77,6 +77,7 @@ const earnValue = e => Math.round((Number(e.price) * 100 + e.bonus) * (1 + (leve
 const expiry = () => addDays(D.lastPos, 365);
 const upcoming = () => D.events.filter(v => v.day >= today());
 const isStaff = () => D && me().role === 'staff';
+const isAdmin = () => isStaff() && !!me().admin;
 const earnById = id => D.earn.find(e => e.id === id);
 
 /* =====================================================================
@@ -270,6 +271,7 @@ function render() {
   $('#nav').style.gridTemplateColumns = `repeat(${ts.length},1fr)`;
   $('#nav').innerHTML = ts.map(([id, l]) => `<button class="${tab === id ? 'on' : ''}" data-tab="${id}" aria-current="${tab === id}">${ICONS[id]}<span>${l}</span></button>`).join('');
   $('#modePill').hidden = tab !== 'admin';
+  $('#modePill').textContent = isAdmin() ? 'Modo jefe' : 'Modo monitor';
   $('#profBtn').classList.toggle('on', tab === 'perfil');
   const views = { pasaporte: vPasaporte, ganar: vGanar, premios: vPremios, retos: vRetos, admin: vAdmin, perfil: vPerfil };
   $('#view').innerHTML = (views[tab] || vPasaporte)();
@@ -433,8 +435,7 @@ function vAdmin() {
   const s = D.settings, ss = s.season || {};
   const st = stats;
   const rewardsAll = D.adminRewards || D.rewards;
-  return `<h2>Zona del equipo</h2>
-  ${st ? `<div class="stats">
+  const adminTop = `  ${st ? `<div class="stats">
     <div class="stat"><b>${fmt(st.socios)}</b><span>socios</span></div>
     <div class="stat"><b>${fmt(st.activos_30)}</b><span>activos en 30 días</span></div>
     <div class="stat"><b>${fmt(st.repartidas)}</b><span>Huellas repartidas</span></div>
@@ -452,8 +453,8 @@ function vAdmin() {
       <button class="btn small ghost" data-export="canjes">Canjes</button>
     </div>
   </div>
-
-  <h3>Registrar asistencia</h3>
+`;
+  const monitorPart = `  <h3>Registrar asistencia</h3>
   <form class="adm card" id="fMon">
     <label for="mAct">Actividad de hoy<select id="mAct">${acts.map(e => opt(e.id, monAct, e.name)).join('')}</select></label>
     <button type="button" class="btn cam-btn" data-cam="mon">${ICONS.cam}<span>Escanear QR con la cámara</span></button>
@@ -471,8 +472,8 @@ function vAdmin() {
     <button class="btn ghost">Validar y entregar</button>
     ${canjeMsg ? `<div class="mon-msg ${canjeMsg.ok ? 'ok' : 'err'}" role="status">${esc(canjeMsg.t)}</div>` : ''}
   </form>
-
-  <h3 id="hEvent">${eV ? 'Editar fecha' : 'Agenda: añadir una fecha'}</h3>
+`;
+  const adminRest = `  <h3 id="hEvent">${eV ? 'Editar fecha' : 'Agenda: añadir una fecha'}</h3>
   <form class="adm card${eV ? ' editing' : ''}" id="fEvent">
     <label for="vEarn">Actividad<select id="vEarn">${acts.map(e => opt(e.id, eV ? eV.earn_id : '', e.name)).join('')}</select></label>
     <label for="vTitle">Título (opcional)<input id="vTitle" placeholder="Ej.: Ruta nocturna de luna llena" value="${esc(eV ? eV.title : '')}"></label>
@@ -556,15 +557,35 @@ function vAdmin() {
     <div class="row2"><label for="bCode">Código del cliente<input id="bCode" required placeholder="WS-XXXXX" autocomplete="off" style="text-transform:uppercase"></label>
     <label for="bDate">Fecha correcta<input id="bDate" type="date" required max="${today()}"></label></div>
     <div class="row-btns"><button class="btn">Corregir</button></div>
-  </form>`;
+  </form>
+
+  <h3>Tu equipo</h3>
+  <form class="adm card" id="fTeam">
+    <div class="row2"><label for="tCode">Código del trabajador<input id="tCode" required placeholder="WS-XXXXX" autocomplete="off" autocapitalize="characters" style="text-transform:uppercase"></label>
+    <label for="tRole">Acceso<select id="tRole"><option value="staff">Hacer monitor</option><option value="client">Quitar del equipo</option></select></label></div>
+    <div class="hint">El trabajador se crea antes una cuenta en la app y te da su código (lo ve en su Perfil). Los monitores solo pueden registrar asistencias y entregar premios.</div>
+    <div class="row-btns"><button class="btn">Guardar</button></div>
+  </form>
+  <div class="stack">${(D.team || []).map(t => `<div class="item"><div class="info"><div class="t">${esc(t.name)}</div><div class="d">${esc(t.code)} · ${t.admin ? 'Jefe' : 'Monitor'}</div></div></div>`).join('') || '<div class="hint">Todavía no hay monitores.</div>'}</div>`;
+  const monitorAgenda = `
+  <h3>Próximas fechas</h3>
+  <div class="stack">${upcoming().map(v => `<div class="item"><div class="info"><div class="t">${esc(v.title || (earnById(v.earn_id) || {}).name || '')}</div><div class="d">${wday(v.day)} ${fdate(v.day)} · ${esc(v.start_time)} · ${esc(v.place)} · ${v.taken}/${v.spots} plazas</div></div></div>`).join('') || '<div class="hint">No hay fechas programadas.</div>'}</div>
+  <div class="hint" style="margin-top:12px">Los precios, la agenda, los premios y los datos de los clientes solo los gestiona el jefe.</div>`;
+  return `<h2>${isAdmin() ? 'Zona del jefe' : 'Zona del monitor'}</h2>
+` + (isAdmin() ? adminTop : '') + monitorPart + (isAdmin() ? adminRest : monitorAgenda);
 }
 
 async function openAdmin() {
   stats = null;
   render();
+  if (!isAdmin()) return;
   try {
-    const [st, rw] = await Promise.all([rpc('staff_stats'), q(sb.from('rewards').select('*').order('cost'))]);
-    stats = st; D.adminRewards = rw;
+    const [st, rw, team] = await Promise.all([
+      rpc('staff_stats'),
+      q(sb.from('rewards').select('*').order('cost')),
+      q(sb.from('profiles').select('name,code,admin').eq('role', 'staff').order('name'))
+    ]);
+    stats = st; D.adminRewards = rw; D.team = team;
     if (tab === 'admin') render();
   } catch (e) { toast('Error', e.message, true); }
 }
@@ -872,6 +893,10 @@ document.addEventListener('submit', async ev => {
       await q(sb.from('settings').update({ contact_name: val(f, '#kName').trim(), contact_phone: val(f, '#kPhone').trim(), contact_email: val(f, '#kEmail').trim(),
         birthday_bonus: Math.max(0, +val(f, '#kBday') || 0), welcome_coupon: val(f, '#kCoupon').trim() || D.settings.welcome_coupon }).eq('id', 1));
       toast('Guardado', 'Datos de contacto actualizados');
+    }
+    else if (f.id === 'fTeam') {
+      const r = await rpc('admin_set_role', { p_code: val(f, '#tCode'), p_role: val(f, '#tRole') });
+      toast('Guardado', r.role === 'staff' ? `${r.name} ya es monitor` : `${r.name} ya no es del equipo`);
     }
     else if (f.id === 'fBirth') {
       await rpc('staff_set_birth', { p_code: val(f, '#bCode'), p_date: val(f, '#bDate') });

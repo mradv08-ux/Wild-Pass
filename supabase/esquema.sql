@@ -592,9 +592,72 @@ revoke execute on function public.is_staff() from public, anon;
 grant execute on function public.is_staff() to authenticated;
 revoke execute on function public.level_idx(uuid) from authenticated;
 
+
+-- ---------------------------------------------------------------------
+--  Jefe y monitores: los monitores registran asistencias y entregan
+--  premios; solo el jefe cambia el catálogo y ve los datos de clientes.
+-- ---------------------------------------------------------------------
+alter table public.profiles add column if not exists admin boolean not null default false;
+
+create or replace function public.is_admin() returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from profiles where id = auth.uid() and role = 'staff' and admin)
+$$;
+revoke execute on function public.is_admin() from public, anon;
+grant execute on function public.is_admin() to authenticated;
+
+alter policy "equipo cambia ajustes" on public.settings using (is_admin()) with check (is_admin());
+alter policy "equipo cambia catalogo" on public.earn_items using (is_admin()) with check (is_admin());
+alter policy "equipo cambia catalogo" on public.rewards using (is_admin()) with check (is_admin());
+alter policy "equipo cambia catalogo" on public.challenges using (is_admin()) with check (is_admin());
+alter policy "equipo cambia catalogo" on public.events using (is_admin()) with check (is_admin());
+alter policy "mi perfil" on public.profiles using (id = auth.uid() or is_admin());
+alter policy "lo mio" on public.movements using (user_id = auth.uid() or is_admin());
+alter policy "lo mio" on public.scans using (user_id = auth.uid() or is_admin());
+alter policy "lo mio" on public.challenge_progress using (user_id = auth.uid() or is_admin());
+alter policy "lo mio" on public.redemptions using (user_id = auth.uid() or is_admin());
+
+create or replace function public.staff_set_birth(p_code text, p_date date) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not is_admin() then raise exception 'Solo el jefe puede hacer esto'; end if;
+  update profiles set birth = p_date, birth_set = madrid_today() where code = upper(trim(p_code));
+  if not found then raise exception 'No hay ningún socio con ese código'; end if;
+end $$;
+
+create or replace function public.staff_stats() returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if not is_admin() then raise exception 'Solo el jefe puede ver esto'; end if;
+  return jsonb_build_object(
+    'socios', (select count(*) from profiles where role = 'client'),
+    'activos_30', (select count(distinct user_id) from scans where day > madrid_today() - 30),
+    'repartidas', (select coalesce(sum(amount), 0) from movements where amount > 0),
+    'canjeadas', (select coalesce(-sum(amount), 0) from movements where amount < 0 and text like 'Canje:%'),
+    'pendientes', (select count(*) from redemptions where not used),
+    'top', (select earn_name from scans where day > madrid_today() - 90
+            group by earn_name order by count(*) desc limit 1)
+  );
+end $$;
+
+create or replace function public.admin_set_role(p_code text, p_role text) returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare n text;
+begin
+  if not is_admin() then raise exception 'Solo el jefe puede gestionar el equipo'; end if;
+  if p_role not in ('client', 'staff') then raise exception 'Acceso no válido'; end if;
+  update profiles set role = p_role where code = upper(trim(p_code)) and not admin returning name into n;
+  if n is null then raise exception 'No hay ningún socio con el código % (o es el jefe)', upper(trim(p_code)); end if;
+  return jsonb_build_object('name', n, 'role', p_role);
+end $$;
+revoke execute on function public.admin_set_role(text, text) from public, anon;
+grant execute on function public.admin_set_role(text, text) to authenticated;
+
 -- =====================================================================
---  Para hacerte del equipo (monitor), regístrate primero en la app y
---  después ejecuta esto cambiando el email:
+--  Para hacerte JEFE, regístrate primero en la app y después ejecuta
+--  esto cambiando el email (solo una vez):
 --
---  update public.profiles set role = 'staff' where email = 'tu-email@ejemplo.com';
+--  update public.profiles set role = 'staff', admin = true where email = 'tu-email@ejemplo.com';
+--
+--  Los monitores se gestionan desde la app: Equipo › Tu equipo.
 -- =====================================================================

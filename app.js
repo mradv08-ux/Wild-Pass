@@ -114,7 +114,7 @@ async function boot() {
   const uid = session.user.id;
   if (bootedFor === uid) return;
   bootedFor = uid;
-  $('#root').innerHTML = '<div class="loading"><div class="spinner"></div><div>Cargando tu pasaporte…</div></div>';
+  $('#root').innerHTML = '<div class="loading"><div class="spinner"></div><div>Abriendo el refugio…</div></div>';
   try {
     const exp = await rpc('check_my_expiry');
     const bday = await rpc('claim_birthday');
@@ -128,7 +128,7 @@ async function boot() {
     subscribe();
   } catch (e) {
     bootedFor = null;
-    $('#root').innerHTML = `<div class="setup card"><h2>No se ha podido cargar tu pasaporte</h2><p class="muted">${esc(e.message)}</p>
+    $('#root').innerHTML = `<div class="setup card"><h2>No se ha podido abrir el refugio</h2><p class="muted">${esc(e.message)}</p>
       <div class="row-btns"><button class="btn ghost" id="outBtn">Cerrar sesión</button><button class="btn" id="retryBtn">Reintentar</button></div></div>`;
     $('#retryBtn').onclick = () => boot();
     $('#outBtn').onclick = () => sb.auth.signOut();
@@ -182,7 +182,7 @@ function celebrateDiff(before, ms) {
   BADGES.filter(b => before.total < b.need && me().total >= b.need).forEach(b =>
     celebrate({ kind: 'sello', title: '¡Nuevo sello de supervivencia!', big: b.ch, name: b.name, sub: `${b.need} salida${b.need > 1 ? 's' : ''} con The Wild Side. Ya tienes ${BADGES.filter(x => me().total >= x.need).length} de ${BADGES.length}.` }));
   ms.filter(m => /^Reto: /.test(m.text)).forEach(m =>
-    celebrate({ kind: 'reto', title: '¡Reto completado!', big: '+' + fmt(m.amount), name: m.text.replace(/^Reto: /, ''), sub: 'Huellas extra sumadas a tu pasaporte.' }));
+    celebrate({ kind: 'reto', title: '¡Reto completado!', big: '+' + fmt(m.amount), name: m.text.replace(/^Reto: /, ''), sub: 'Huellas extra sumadas a tu saldo.' }));
   const after = levelIdx();
   if (after > before.level) celebrate({ kind: 'nivel', title: '¡Subes de nivel!', big: levels()[after].name, name: 'Ahora eres ' + levels()[after].name, sub: levels()[after].perk });
 }
@@ -201,8 +201,8 @@ function renderAuth() {
   const login = authMode === 'login', signup = authMode === 'signup', forgot = authMode === 'forgot';
   $('#root').innerHTML = `<div class="auth">
     <div class="auth-head"><img src="${LOGO}" alt="Logo de The Wild Side"><div class="brand">Wild Pass</div>
-      <div class="sub">Gana Huellas en cada aventura con The Wild Side y canjéalas por premios.</div></div>
-    ${forgot ? '' : `<div class="seg"><button class="${login ? 'on' : ''}" data-auth="login">Entrar</button><button class="${signup ? 'on' : ''}" data-auth="signup">Crear cuenta</button></div>`}
+      <div class="sub">Únete al refugio de The Wild Side: gana Huellas en cada aventura y canjéalas por premios.</div></div>
+    ${forgot ? '' : `<div class="seg"><button class="${login ? 'on' : ''}" data-auth="login">Entrar</button><button class="${signup ? 'on' : ''}" data-auth="signup">Unirme</button></div>`}
     <form class="card" id="fAuth" novalidate>
       ${forgot ? '<h2 style="margin:0">Recuperar contraseña</h2><div class="hint" style="margin:0">Te enviamos un email con un enlace para poner una nueva.</div>' : ''}
       ${signup ? '<label for="aName">Nombre<input id="aName" autocomplete="name" required maxlength="60" placeholder="Cómo quieres que te llamemos"></label>' : ''}
@@ -212,7 +212,7 @@ function renderAuth() {
         <div class="hint" style="margin-top:-6px">Si tienes menos, pide a tu padre, madre o tutor que cree la cuenta.</div>
         <label class="check" for="aLegal"><input type="checkbox" id="aLegal"> <span>Acepto las <a href="legal.html#bases" target="_blank" rel="noopener">bases del programa</a> y la <a href="legal.html#privacidad" target="_blank" rel="noopener">política de privacidad</a></span></label>` : ''}
       ${authMsg ? `<div class="${authMsg.ok ? 'form-ok' : 'form-err'}" role="status">${esc(authMsg.t)}</div>` : ''}
-      <button class="btn">${login ? 'Entrar' : signup ? 'Crear mi pasaporte' : 'Enviar enlace'}</button>
+      <button class="btn">${login ? 'Entrar' : signup ? 'Unirme al refugio' : 'Enviar enlace'}</button>
       ${login ? '<button type="button" class="link-small" data-auth="forgot">¿Has olvidado la contraseña?</button>' : ''}
       ${forgot ? '<button type="button" class="link-small" data-auth="login">Volver a entrar</button>' : ''}
     </form></div>`;
@@ -266,7 +266,7 @@ const ICONS = {
   cam: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h3l2-3h6l2 3h3v13H4z"/><circle cx="12" cy="13" r="4"/></svg>'
 };
 const PROFILE_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>';
-const tabs = () => [['pasaporte', 'Pasaporte'], ['ganar', 'Ganar'], ['premios', 'Premios'], ['retos', 'Retos']].concat(isStaff() ? [['admin', 'Equipo']] : []);
+const tabs = () => [['pasaporte', 'Refugio'], ['ganar', 'Ganar'], ['premios', 'Premios'], ['retos', 'Retos']].concat(isStaff() ? [['admin', 'Equipo']] : []);
 
 function render() {
   if (!D || !$('#view')) return;
@@ -434,7 +434,7 @@ function vPerfil() {
   <div class="stack">
     <button class="btn ghost" data-welcome="1">Ver la bienvenida otra vez</button>
     <button class="btn ghost" data-logout="1">Cerrar sesión</button>
-    ${confirmDel ? `<div class="card stack"><b>¿Borrar tu cuenta?</b><span class="muted" style="font-size:13px">Se borrarán tu pasaporte, tus Huellas, tus sellos y tus premios sin recoger. No se puede deshacer.</span><div class="row-btns"><button class="btn ghost small" data-delacc="no">Cancelar</button><button class="btn warn small" data-delacc="yes">Sí, borrar mi cuenta</button></div></div>`
+    ${confirmDel ? `<div class="card stack"><b>¿Borrar tu cuenta?</b><span class="muted" style="font-size:13px">Se borrarán tu cuenta, tus Huellas, tus sellos y tus premios sin recoger. No se puede deshacer.</span><div class="row-btns"><button class="btn ghost small" data-delacc="no">Cancelar</button><button class="btn warn small" data-delacc="yes">Sí, borrar mi cuenta</button></div></div>`
       : '<button class="btn warn" data-delacc="ask">Borrar mi cuenta</button>'}
   </div>`;
 }
@@ -679,7 +679,7 @@ function closeSheet() { $('#sheetHost').innerHTML = ''; }
 function showMyQR() {
   const p = me();
   sheet(`<div style="justify-items:center;text-align:center;display:grid;gap:12px">
-    <div style="font-family:var(--display);font-size:22px">Mi pasaporte</div>
+    <div style="font-family:var(--display);font-size:22px">Mi pase de superviviente</div>
     <div class="muted">Enséñaselo al monitor al empezar la actividad.</div>
     <div id="qrBox" class="qr-box"></div>
     ${avatarHTML(p, 'avatar-md')}

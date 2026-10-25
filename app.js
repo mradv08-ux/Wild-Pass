@@ -347,7 +347,7 @@ function vGanar() {
   <p class="muted" style="margin-top:-4px">100 Huellas por cada euro, más bonus por venir. Enseña tu QR al monitor y te las suma al momento.</p>
   <div class="seg">${kinds.map(k => `<button class="${filter === k ? 'on' : ''}" data-filter="${k}">${k === 'todo' ? 'Todo' : KINDS[k]}</button>`).join('')}</div>
   <div class="stack" style="margin-top:10px">${list.map(e => `<div class="item">${thumb(e.img)}<div class="info"><div class="t">${esc(e.name)}</div>
-    <div class="d"><span class="tag">${KINDS[e.kind] || esc(e.kind)}</span>${Number(e.price) ? eur(e.price) : ''}${Number(e.price) && e.bonus ? ' · ' : ''}${e.bonus ? `bonus ${fmt(e.bonus)}` : ''}</div>${e.note ? `<div class="note">${esc(e.note)}</div>` : ''}</div>
+    <div class="d"><span class="tag">${KINDS[e.kind] || esc(e.kind)}</span><span class="nw">${Number(e.price) ? eur(e.price) : ''}${Number(e.price) && e.bonus ? ' · ' : ''}${e.bonus ? `bonus ${fmt(e.bonus)}` : ''}</span></div>${e.note ? `<div class="note">${esc(e.note)}</div>` : ''}</div>
     <span class="cost">+${fmt(earnValue(e))}</span></div>`).join('') || '<p class="muted">No hay nada en esta categoría todavía.</p>'}</div>`;
 }
 
@@ -527,7 +527,7 @@ function vAdmin() {
     <label for="ePhoto">${eE ? 'Cambiar foto (opcional)' : 'Foto (opcional)'}<input id="ePhoto" type="file" accept="image/*"></label>
     <div class="row-btns">${eE ? '<button type="button" class="btn ghost" data-cancel="earn">Cancelar</button>' : ''}<button class="btn">${eE ? 'Guardar cambios' : 'Añadir al catálogo'}</button></div>
   </form>
-  <div class="stack">${D.earn.map(e => `<div class="item">${thumb(e.img)}<div class="info"><div class="t">${esc(e.name)}</div><div class="d"><span class="tag">${KINDS[e.kind] || esc(e.kind)}</span>${eur(e.price)} · bonus ${fmt(e.bonus)}</div></div><div class="acts">${editBtn('earn', e.id)}${e.id === 'amigo' ? '' : delBtn('earn', e.id)}</div></div>`).join('')}</div>
+  <div class="stack">${D.earn.map(e => `<div class="item">${thumb(e.img)}<div class="info"><div class="t">${esc(e.name)}</div><div class="d"><span class="tag">${KINDS[e.kind] || esc(e.kind)}</span><span class="nw">${eur(e.price)} · bonus ${fmt(e.bonus)}</span></div></div><div class="acts">${editBtn('earn', e.id)}${e.id === 'amigo' ? '' : delBtn('earn', e.id)}</div></div>`).join('')}</div>
   <div class="hint" style="margin-top:8px">Quitar una actividad borra también sus retos.</div>
 
   <h3 id="hReward">${eR ? 'Editar: ' + esc(eR.name) : 'Añadir un premio'}</h3>
@@ -539,7 +539,7 @@ function vAdmin() {
     <label for="rPhoto">${eR ? 'Cambiar foto (opcional)' : 'Foto (opcional)'}<input id="rPhoto" type="file" accept="image/*"></label>
     <div class="row-btns">${eR ? '<button type="button" class="btn ghost" data-cancel="rewards">Cancelar</button>' : ''}<button class="btn">${eR ? 'Guardar cambios' : 'Añadir premio'}</button></div>
   </form>
-  <div class="stack">${rewardsAll.map(r => `<div class="item">${thumb(r.img)}<div class="info"><div class="t">${esc(r.name)}</div><div class="d"><span class="tag">${esc(r.cat)}</span>${fmt(r.cost)} · ${esc((levels()[r.min_level] || {}).name)}</div></div><div class="acts">${editBtn('rewards', r.id)}${delBtn('rewards', r.id)}</div></div>`).join('')}</div>
+  <div class="stack">${rewardsAll.map(r => `<div class="item">${thumb(r.img)}<div class="info"><div class="t">${esc(r.name)}</div><div class="d"><span class="tag">${esc(r.cat)}</span><span class="nw">${fmt(r.cost)} · ${esc((levels()[r.min_level] || {}).name)}</span></div></div><div class="acts">${editBtn('rewards', r.id)}${delBtn('rewards', r.id)}</div></div>`).join('')}</div>
 
   <h3 id="hChal">${eC ? 'Editar: ' + esc(eC.name) : 'Añadir un reto'}</h3>
   <form class="adm card${eC ? ' editing' : ''}" id="fChal">
@@ -557,7 +557,7 @@ function vAdmin() {
   <form class="adm card" id="fLevels">
     ${levels().map((l, i) => `<fieldset class="lvl"><legend>Nivel ${i + 1}</legend>
       <div class="row3"><label for="lName${i}">Nombre<input id="lName${i}" value="${esc(l.name)}" required></label>
-      <label for="lMin${i}">Actividades<input id="lMin${i}" type="number" min="0" value="${l.min}" ${i === 0 ? 'readonly' : ''}></label>
+      <label for="lMin${i}">Salidas<input id="lMin${i}" type="number" min="0" value="${l.min}" ${i === 0 ? 'readonly' : ''}></label>
       <label for="lMult${i}">% extra<input id="lMult${i}" type="number" min="0" max="200" value="${l.mult}"></label></div>
       <label for="lPerk${i}">Ventajas<input id="lPerk${i}" value="${esc(l.perk)}"></label></fieldset>`).join('')}
     <div class="row-btns"><button class="btn">Guardar niveles</button></div>

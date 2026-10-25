@@ -260,3 +260,16 @@ a.btn{display:inline-block;text-decoration:none;text-align:center}
 .pw-eye svg{width:20px;height:20px}
 .pw-eye[aria-pressed=true]{color:var(--green-ink)}
 .pw-eye:focus-visible{outline:2px solid var(--gold)}
+/* Repaso de cuadre */
+.nw{white-space:nowrap}
+.item .d{line-height:1.6}
+.item .d .tag{vertical-align:1px}
+.row2,.row3{align-items:end}
+header.top .sub{white-space:nowrap}
+header.top .brand,header.top .sub{overflow:hidden;text-overflow:ellipsis}
+.mode-pill{font-size:9.5px;letter-spacing:.06em;padding:4px 8px}
+input[type=file]{width:100%;color:var(--muted)}
+input[type=file]::file-selector-button{font:inherit;font-weight:700;font-size:13px;border:0;border-radius:999px;padding:7px 14px;margin-right:10px;background:var(--green-soft);color:var(--green-ink);cursor:pointer}
+.thumb,.thumb.logo{flex:none}
+.item>.acts{flex:none;display:grid;gap:6px;justify-items:stretch}
+.item>.acts .btn{width:100%}

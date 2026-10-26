@@ -17,8 +17,8 @@ const BADGES = [
   { name: 'Señor del Páramo', ch: 'VII', need: 15 }, { name: 'Caminante del Fin del Mundo', ch: 'VIII', need: 20 },
   { name: 'Leyenda de la Zona Cero', ch: 'IX', need: 30 }, { name: 'El Último Superviviente', ch: 'X', need: 50 }
 ];
-const TABLE = { earn: 'earn_items', rewards: 'rewards', challenges: 'challenges', events: 'events' };
-const FORM_OF = { earn: 'hEarn', rewards: 'hReward', challenges: 'hChal', events: 'hEvent' };
+const TABLE = { earn: 'earn_items', rewards: 'rewards', challenges: 'challenges', events: 'events', tasks: 'tasks' };
+const FORM_OF = { earn: 'hEarn', rewards: 'hReward', challenges: 'hChal', events: 'hEvent', tasks: 'hTask' };
 
 /* ---------- Formato ---------- */
 const fmt = n => { const v = Math.round(Number(n) || 0); return (v < 0 ? '-' : '') + String(Math.abs(v)).replace(/\B(?=(\d{3})+(?!\d))/g, '.'); };
@@ -44,7 +44,7 @@ const avatarHTML = (p, cls) => p && p.avatar ? `<img class="${cls}" src="${esc(p
 let session = null, bootedFor = null, D = null;
 let tab = 'pasaporte', filter = 'todo', monMsg = null, canjeMsg = null, monAct = null, confirmDel = false, pendingDel = null;
 let authMode = 'login', authMsg = null, stats = null, channel = null, scanner = null, shownBalance = null;
-const editing = { earn: null, rewards: null, challenges: null, events: null };
+const editing = { earn: null, rewards: null, challenges: null, events: null, tasks: null };
 
 async function q(promise) { const { data, error } = await promise; if (error) throw new Error(niceError(error.message)); return data; }
 async function rpc(fn, args) { const { data, error } = await sb.rpc(fn, args || {}); if (error) throw new Error(niceError(error.message)); return data; }
@@ -153,7 +153,8 @@ async function load() {
   D = {
     me: prof, settings, earn, rewards, challenges, events, moves, reds, scans,
     lastPos: (lastPos[0] && lastPos[0].day) || prof.since,
-    progress: Object.fromEntries(progress.map(p => [p.challenge_id, p.progress]))
+    progress: Object.fromEntries(progress.map(p => [p.challenge_id, p.progress])),
+    tasks: prof.role === 'staff' ? await q(sb.from('tasks').select('*').gte('day', addDays(t, -7)).order('day').order('start_time')) : []
   };
   if (!monAct || !earnById(monAct)) { const f = D.earn.find(e => e.kind !== 'comunidad'); monAct = f ? f.id : null; }
 }
@@ -439,6 +440,22 @@ function vPerfil() {
   </div>`;
 }
 
+/* ---------- Trabajos del equipo ---------- */
+let assignTo = null;
+function taskItem(t, admin) {
+  const v = t.event_id && D.events.find(x => x.id === t.event_id);
+  const late = !t.done && t.day < today();
+  const when = `${wday(t.day)} ${fdate(t.day)}${t.start_time ? ' · ' + esc(t.start_time) : ''}${t.place ? ' · ' + esc(t.place) : ''}`;
+  return `<div class="item task${t.done ? ' done' : ''}">
+    <div class="info"><div class="t">${esc(t.title)}</div>
+      <div class="d">${when}${late ? ' · <b class="late">sin hacer</b>' : ''}</div>
+      ${v ? `<div class="d">Para: ${esc(v.title || (earnById(v.earn_id) || {}).name || '')}</div>` : ''}
+      ${t.notes ? `<div class="note">${esc(t.notes)}</div>` : ''}</div>
+    <div class="acts">${admin ? `<button class="btn small${t.done ? ' ghost' : ''}" data-task="${esc(t.id)}" data-done="${t.done ? 0 : 1}" aria-pressed="${t.done}">${t.done ? '✓ Hecho' : 'Hecho'}</button><button class="btn small ghost" data-edit="tasks:${esc(t.id)}">Editar</button><button class="btn small warn" data-del="tasks:${esc(t.id)}">${pendingDel === 'tasks:' + t.id ? '¿Seguro?' : 'Quitar'}</button>`
+      : `<button class="btn small${t.done ? ' ghost' : ''}" data-task="${esc(t.id)}" data-done="${t.done ? 0 : 1}" aria-pressed="${t.done}">${t.done ? '✓ Hecho' : 'Marcar hecho'}</button>`}</div>
+  </div>`;
+}
+
 /* ---------- Panel del equipo ---------- */
 function vAdmin() {
   if (!isStaff()) return '<p class="muted">Esta zona es solo para el equipo.</p>';
@@ -580,20 +597,52 @@ function vAdmin() {
     <div class="row-btns"><button class="btn">Corregir</button></div>
   </form>
 
-  <h3>Tu equipo</h3>
+  <h3>Añadir o quitar del equipo</h3>
   <form class="adm card" id="fTeam">
     <div class="row2"><label for="tCode">Código del trabajador<input id="tCode" required placeholder="WS-XXXXX" autocomplete="off" autocapitalize="characters" style="text-transform:uppercase"></label>
     <label for="tRole">Acceso<select id="tRole"><option value="staff">Hacer monitor</option><option value="client">Quitar del equipo</option></select></label></div>
     <div class="hint">El trabajador se crea antes una cuenta en la app y te da su código (lo ve en su Perfil). Los monitores solo pueden registrar asistencias y entregar premios.</div>
     <div class="row-btns"><button class="btn">Guardar</button></div>
   </form>
-  <div class="stack">${(D.team || []).map(t => `<div class="item"><div class="info"><div class="t">${esc(t.name)}</div><div class="d">${esc(t.code)} · ${t.admin ? 'Jefe' : 'Monitor'}</div></div></div>`).join('') || '<div class="hint">Todavía no hay monitores.</div>'}</div>`;
+`;
+  const myTasks = (D.tasks || []).filter(t => t.assigned_to === me().id && (!t.done || t.day >= today()));
+  const myTasksHTML = `
+  <h3>Mis trabajos</h3>
+  <div class="stack">${myTasks.map(t => taskItem(t, false)).join('') || '<div class="hint">No tienes trabajos asignados. ¡Descansa, superviviente!</div>'}</div>`;
+  const eT = editing.tasks && (D.tasks || []).find(x => x.id === editing.tasks);
+  const team = D.team || [];
+  const nextEvents = upcoming();
+  const teamPart = `
+  <h3>Tu equipo</h3>
+  <div class="stack">${team.map(m => {
+    const ts = (D.tasks || []).filter(t => t.assigned_to === m.id && (!t.done || t.day >= today()));
+    const pend = ts.filter(t => !t.done).length;
+    return `<div class="card member">
+      <div class="member-head">${avatarHTML(m, 'avatar-md')}<div class="info"><div class="t">${esc(m.name || 'Sin nombre')}</div>
+        <div class="d">${m.admin ? 'Jefe' : 'Monitor'} · <span class="num">${esc(m.code)}</span></div>
+        <div class="d">${pend ? `<b class="pend">${pend} trabajo${pend > 1 ? 's' : ''} pendiente${pend > 1 ? 's' : ''}</b>` : 'Sin trabajos pendientes'}</div></div>
+        <button class="btn small" data-assign="${esc(m.id)}">Asignar</button></div>
+      ${ts.length ? `<div class="stack task-list">${ts.map(t => taskItem(t, true)).join('')}</div>` : ''}
+    </div>`;
+  }).join('') || '<div class="hint">Todavía no hay nadie en el equipo.</div>'}</div>
+
+  <h3 id="hTask">${eT ? 'Editar trabajo' : 'Asignar un trabajo'}</h3>
+  <form class="adm card${eT ? ' editing' : ''}" id="fTask">
+    <label for="kWho">Para<select id="kWho" required>${team.map(m => opt(m.id, eT ? eT.assigned_to : assignTo, (m.name || m.code) + (m.admin ? ' (tú)' : ''))).join('')}</select></label>
+    <label for="kEv">Fecha de la agenda (opcional)<select id="kEv"><option value="">Ninguna, es otra cosa</option>${nextEvents.map(v => opt(v.id, eT ? eT.event_id : '', fdate(v.day) + ' · ' + (v.title || (earnById(v.earn_id) || {}).name || ''))).join('')}</select></label>
+    <label for="kTitle">Trabajo<input id="kTitle" required maxlength="120" placeholder="Ej.: Guiar la ruta, montar el pasaje, puesto de merch" value="${esc(eT ? eT.title : '')}"></label>
+    <div class="row2"><label for="kDay">Fecha<input id="kDay" type="date" required value="${esc(eT ? eT.day : '')}"></label>
+    <label for="kTime">Hora<input id="kTime" type="time" value="${esc(eT ? eT.start_time : '')}"></label></div>
+    <label for="kPlace">Lugar<input id="kPlace" maxlength="120" placeholder="Ej.: Plaza del Ayuntamiento" value="${esc(eT ? eT.place : '')}"></label>
+    <label for="kNotes">Notas (opcional)<textarea id="kNotes" maxlength="500" rows="3" placeholder="Ej.: Lleva el botiquín y las linternas">${esc(eT ? eT.notes : '')}</textarea></label>
+    <div class="row-btns">${eT ? '<button type="button" class="btn ghost" data-cancel="tasks">Cancelar</button>' : ''}<button class="btn">${eT ? 'Guardar cambios' : 'Asignar trabajo'}</button></div>
+  </form>`;
   const monitorAgenda = `
   <h3>Próximas fechas</h3>
   <div class="stack">${upcoming().map(v => `<div class="item"><div class="info"><div class="t">${esc(v.title || (earnById(v.earn_id) || {}).name || '')}</div><div class="d">${wday(v.day)} ${fdate(v.day)} · ${esc(v.start_time)} · ${esc(v.place)} · ${v.spots >= 999 ? 'entrada libre' : `${v.taken}/${v.spots} plazas`}</div></div></div>`).join('') || '<div class="hint">No hay fechas programadas.</div>'}</div>
   <div class="hint" style="margin-top:12px">Los precios, la agenda, los premios y los datos de los clientes solo los gestiona el jefe.</div>`;
   return `<h2>${isAdmin() ? 'Zona del jefe' : 'Zona del monitor'}</h2>
-` + (isAdmin() ? adminTop : '') + monitorPart + (isAdmin() ? adminRest : monitorAgenda);
+` + (isAdmin() ? adminTop + teamPart : myTasksHTML) + monitorPart + (isAdmin() ? adminRest : monitorAgenda);
 }
 
 async function openAdmin() {
@@ -604,7 +653,7 @@ async function openAdmin() {
     const [st, rw, team] = await Promise.all([
       rpc('staff_stats'),
       q(sb.from('rewards').select('*').order('cost')),
-      q(sb.from('profiles').select('name,code,admin').eq('role', 'staff').order('name'))
+      q(sb.from('profiles').select('id,name,code,admin,avatar').eq('role', 'staff').order('admin', { ascending: false }).order('name'))
     ]);
     stats = st; D.adminRewards = rw; D.team = team;
     if (tab === 'admin') render();
@@ -886,6 +935,8 @@ document.addEventListener('click', async ev => {
   else if (d.avatar === 'remove') { try { await rpc('set_my_avatar', { p_img: null }); await load(); render(); toast('Foto quitada', 'Ya no tienes foto de perfil'); } catch (e) { toast('No se ha podido quitar', e.message, true); } }
   else if (d.cam === 'mon') openScanner(code => { $('#mCode').value = code; doMonScan(code); });
   else if (d.cam === 'canje') openScanner(code => { $('#cjCode').value = code; doCanje(code); });
+  else if (d.task) { b.disabled = true; try { await rpc('mark_task', { p_id: d.task, p_done: d.done === '1' }); await load(); render(); if (d.done === '1') toast('¡Hecho!', 'Trabajo completado'); } catch (e) { toast('No se ha podido guardar', e.message, true); b.disabled = false; } }
+  else if (d.assign) { assignTo = d.assign; editing.tasks = null; render(); const h = $('#hTask'); if (h) h.scrollIntoView({ block: 'start' }); const i = $('#kTitle'); if (i) i.focus({ preventScroll: true }); }
   else if (d.edit) { const [t, id] = d.edit.split(':'); editing[t] = id; render(); const h = document.getElementById(FORM_OF[t]); if (h) h.scrollIntoView({ block: 'start' }); }
   else if (d.cancel) { editing[d.cancel] = null; render(); }
   else if (d.del) {
@@ -902,6 +953,11 @@ document.addEventListener('click', async ev => {
   }
 });
 
+document.addEventListener('change', ev => {
+  if (ev.target.id !== 'kEv' || !D) return;
+  const v = D.events.find(x => x.id === ev.target.value); if (!v) return;
+  $('#kDay').value = v.day; $('#kTime').value = v.start_time || ''; $('#kPlace').value = v.place || '';
+});
 document.addEventListener('change', async ev => {
   if (ev.target.id !== 'avatarIn' || !D) return;
   const im = await loadImage(ev.target); ev.target.value = '';
@@ -970,6 +1026,15 @@ document.addEventListener('submit', async ev => {
       await q(sb.from('settings').update({ contact_name: val(f, '#kName').trim(), contact_phone: val(f, '#kPhone').trim(), contact_email: val(f, '#kEmail').trim(),
         birthday_bonus: Math.max(0, +val(f, '#kBday') || 0), welcome_coupon: val(f, '#kCoupon').trim() || D.settings.welcome_coupon }).eq('id', 1));
       toast('Guardado', 'Datos de contacto actualizados');
+    }
+    else if (f.id === 'fTask') {
+      const data = { assigned_to: val(f, '#kWho'), event_id: val(f, '#kEv') || null, title: val(f, '#kTitle').trim(), day: val(f, '#kDay'),
+        start_time: val(f, '#kTime'), place: val(f, '#kPlace').trim(), notes: val(f, '#kNotes').trim() };
+      if (!data.title || !data.day) throw new Error('Pon qué hay que hacer y la fecha.');
+      if (editing.tasks) await q(sb.from('tasks').update(data).eq('id', editing.tasks)); else await q(sb.from('tasks').insert(data));
+      const who = (D.team || []).find(m => m.id === data.assigned_to);
+      toast(editing.tasks ? 'Guardado' : 'Trabajo asignado', who ? `${who.name} lo verá en su zona del equipo` : 'Ya está en la lista');
+      editing.tasks = null; assignTo = data.assigned_to;
     }
     else if (f.id === 'fTeam') {
       const r = await rpc('admin_set_role', { p_code: val(f, '#tCode'), p_role: val(f, '#tRole') });

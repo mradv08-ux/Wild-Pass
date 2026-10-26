@@ -705,3 +705,18 @@ end $$;
 
 -- v9: cartel opcional por fecha de la agenda
 alter table public.events add column if not exists img text;
+
+-- v10: trabajos del equipo (el jefe asigna, cada monitor ve los suyos)
+create table if not exists public.tasks (
+  id text primary key default ('t' || substr(md5(random()::text), 1, 8)),
+  assigned_to uuid not null references public.profiles(id) on delete cascade,
+  title text not null check (length(title) between 1 and 120),
+  notes text not null default '' check (length(notes) <= 500),
+  day date not null, start_time text not null default '', place text not null default '',
+  event_id text references public.events(id) on delete set null,
+  done boolean not null default false, done_at timestamptz,
+  created_at timestamptz not null default now()
+);
+alter table public.tasks enable row level security;
+-- Políticas: "ver trabajos" (jefe o el propio monitor), insert/update/delete solo jefe.
+-- Función mark_task(p_id, p_done): el monitor marca como hecho un trabajo suyo.

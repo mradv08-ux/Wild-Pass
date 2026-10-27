@@ -456,7 +456,7 @@ function taskItem(t, admin) {
   </div>`;
 }
 
-const PUESTOS = ['Monitor', 'Monitora', 'Guía de montaña', 'Cronista del Refugio', 'Coordinación'];
+const PUESTOS = ['Monitor', 'Monitora', 'Guía de montaña', 'Creador de contenido', 'Creadora de contenido', 'Coordinación'];
 const puesto = m => m.position || (m.admin ? 'Jefe' : 'Monitor');
 function askPuesto(id) {
   const m = (D.team || []).find(x => x.id === id); if (!m) return;

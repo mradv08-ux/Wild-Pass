@@ -275,7 +275,7 @@ function render() {
   $('#nav').style.gridTemplateColumns = `repeat(${ts.length},1fr)`;
   $('#nav').innerHTML = ts.map(([id, l]) => `<button class="${tab === id ? 'on' : ''}" data-tab="${id}" aria-current="${tab === id}">${ICONS[id]}<span>${l}</span></button>`).join('');
   $('#modePill').hidden = tab !== 'admin';
-  $('#modePill').textContent = isAdmin() ? 'Modo jefe' : 'Modo monitor';
+  $('#modePill').textContent = isAdmin() ? 'Modo jefe' : 'Equipo';
   $('#profBtn').classList.toggle('on', tab === 'perfil');
   $('#profBtn').innerHTML = me().avatar ? `<img src="${esc(me().avatar)}" alt="">` : PROFILE_ICON;
   const views = { pasaporte: vPasaporte, ganar: vGanar, premios: vPremios, retos: vRetos, admin: vAdmin, perfil: vPerfil };
@@ -456,6 +456,23 @@ function taskItem(t, admin) {
   </div>`;
 }
 
+const PUESTOS = ['Monitor', 'Monitora', 'Guía de montaña', 'Cronista del Refugio', 'Coordinación'];
+const puesto = m => m.position || (m.admin ? 'Jefe' : 'Monitor');
+function askPuesto(id) {
+  const m = (D.team || []).find(x => x.id === id); if (!m) return;
+  sheet(`<div style="font-family:var(--display);font-size:22px">Puesto de ${esc(m.name)}</div>
+    <div class="muted">Es solo el nombre que se ve en el equipo. Lo que puede hacer en la app no cambia.</div>
+    <div class="chips">${PUESTOS.map(p => `<button type="button" class="chip" data-pick="${esc(p)}">${esc(p)}</button>`).join('')}</div>
+    <label for="pPuesto">Puesto<input id="pPuesto" maxlength="40" value="${esc(m.position)}" placeholder="${m.admin ? 'Jefe' : 'Monitor'}"></label>
+    <div class="row-btns"><button class="btn ghost" data-close="1">Cancelar</button><button class="btn" id="okPuesto">Guardar</button></div>`);
+  document.querySelectorAll('[data-pick]').forEach(c => c.onclick = () => { $('#pPuesto').value = c.dataset.pick; });
+  $('#okPuesto').onclick = async () => {
+    $('#okPuesto').disabled = true;
+    try { const r = await rpc('admin_set_position', { p_id: id, p_position: $('#pPuesto').value }); closeSheet(); await openAdmin(); toast('Guardado', `${m.name}: ${r || puesto({ admin: m.admin })}`); }
+    catch (e) { $('#okPuesto').disabled = false; toast('No se ha podido guardar', e.message, true); }
+  };
+}
+
 /* ---------- Panel del equipo ---------- */
 function vAdmin() {
   if (!isStaff()) return '<p class="muted">Esta zona es solo para el equipo.</p>';
@@ -619,9 +636,9 @@ function vAdmin() {
     const pend = ts.filter(t => !t.done).length;
     return `<div class="card member">
       <div class="member-head">${avatarHTML(m, 'avatar-md')}<div class="info"><div class="t">${esc(m.name || 'Sin nombre')}</div>
-        <div class="d">${m.admin ? 'Jefe' : 'Monitor'} · <span class="num">${esc(m.code)}</span></div>
+        <div class="d">${esc(puesto(m))} · <span class="num nw">${esc(m.code)}</span></div>
         <div class="d">${pend ? `<b class="pend">${pend} trabajo${pend > 1 ? 's' : ''} pendiente${pend > 1 ? 's' : ''}</b>` : 'Sin trabajos pendientes'}</div></div>
-        <button class="btn small" data-assign="${esc(m.id)}">Asignar</button></div>
+        <div class="acts"><button class="btn small" data-assign="${esc(m.id)}">Asignar</button><button class="btn small ghost" data-puesto="${esc(m.id)}">Puesto</button></div></div>
       ${ts.length ? `<div class="stack task-list">${ts.map(t => taskItem(t, true)).join('')}</div>` : ''}
     </div>`;
   }).join('') || '<div class="hint">Todavía no hay nadie en el equipo.</div>'}</div>
@@ -641,7 +658,7 @@ function vAdmin() {
   <h3>Próximas fechas</h3>
   <div class="stack">${upcoming().map(v => `<div class="item"><div class="info"><div class="t">${esc(v.title || (earnById(v.earn_id) || {}).name || '')}</div><div class="d">${wday(v.day)} ${fdate(v.day)} · ${esc(v.start_time)} · ${esc(v.place)} · ${v.spots >= 999 ? 'entrada libre' : `${v.taken}/${v.spots} plazas`}</div></div></div>`).join('') || '<div class="hint">No hay fechas programadas.</div>'}</div>
   <div class="hint" style="margin-top:12px">Los precios, la agenda, los premios y los datos de los clientes solo los gestiona el jefe.</div>`;
-  return `<h2>${isAdmin() ? 'Zona del jefe' : 'Zona del monitor'}</h2>
+  return `<h2>${isAdmin() ? 'Zona del jefe' : 'Zona del equipo'}</h2>
 ` + (isAdmin() ? adminTop + teamPart : myTasksHTML) + monitorPart + (isAdmin() ? adminRest : monitorAgenda);
 }
 
@@ -653,7 +670,7 @@ async function openAdmin() {
     const [st, rw, team] = await Promise.all([
       rpc('staff_stats'),
       q(sb.from('rewards').select('*').order('cost')),
-      q(sb.from('profiles').select('id,name,code,admin,avatar').eq('role', 'staff').order('admin', { ascending: false }).order('name'))
+      q(sb.from('profiles').select('id,name,code,admin,avatar,position').eq('role', 'staff').order('admin', { ascending: false }).order('name'))
     ]);
     stats = st; D.adminRewards = rw; D.team = team;
     if (tab === 'admin') render();
@@ -936,6 +953,7 @@ document.addEventListener('click', async ev => {
   else if (d.cam === 'mon') openScanner(code => { $('#mCode').value = code; doMonScan(code); });
   else if (d.cam === 'canje') openScanner(code => { $('#cjCode').value = code; doCanje(code); });
   else if (d.task) { b.disabled = true; try { await rpc('mark_task', { p_id: d.task, p_done: d.done === '1' }); await load(); render(); if (d.done === '1') toast('¡Hecho!', 'Trabajo completado'); } catch (e) { toast('No se ha podido guardar', e.message, true); b.disabled = false; } }
+  else if (d.puesto) askPuesto(d.puesto);
   else if (d.assign) { assignTo = d.assign; editing.tasks = null; render(); const h = $('#hTask'); if (h) h.scrollIntoView({ block: 'start' }); const i = $('#kTitle'); if (i) i.focus({ preventScroll: true }); }
   else if (d.edit) { const [t, id] = d.edit.split(':'); editing[t] = id; render(); const h = document.getElementById(FORM_OF[t]); if (h) h.scrollIntoView({ block: 'start' }); }
   else if (d.cancel) { editing[d.cancel] = null; render(); }

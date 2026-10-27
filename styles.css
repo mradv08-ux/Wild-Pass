@@ -289,3 +289,5 @@ textarea{resize:vertical;font-weight:400}
 .item.task{flex-wrap:wrap}
 .item.task>.acts{display:flex;flex-direction:row;width:100%;justify-content:flex-end;gap:6px}
 .item.task>.acts .btn{width:auto}
+.chip[data-pick]{font-family:var(--body);font-size:13px;font-weight:600;padding:8px 12px;border-radius:999px;border-style:solid;cursor:pointer}
+.member-head>.acts{display:grid;gap:6px}

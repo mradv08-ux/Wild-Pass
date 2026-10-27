@@ -441,7 +441,7 @@ function vPerfil() {
 }
 
 /* ---------- Trabajos del equipo ---------- */
-let assignTo = null;
+let assignTo = null, rkYear = new Date().getFullYear(), ranking = null;
 function taskItem(t, admin) {
   const v = t.event_id && D.events.find(x => x.id === t.event_id);
   const late = !t.done && t.day < today();
@@ -471,6 +471,24 @@ function askPuesto(id) {
     try { const r = await rpc('admin_set_position', { p_id: id, p_position: $('#pPuesto').value }); closeSheet(); await openAdmin(); toast('Guardado', `${m.name}: ${r || puesto({ admin: m.admin })}`); }
     catch (e) { $('#okPuesto').disabled = false; toast('No se ha podido guardar', e.message, true); }
   };
+}
+
+async function showLog(id) {
+  const m = (D.team || []).find(x => x.id === id); if (!m) return;
+  const d0 = rkYear + '-01-01', d1 = (rkYear + 1) + '-01-01';
+  sheet(`<div style="font-family:var(--display);font-size:22px">${esc(m.name)} · ${rkYear}</div><div class="hint" style="margin:0">Cargando…</div>`);
+  try {
+    const [ls, ts] = await Promise.all([
+      q(sb.from('staff_log').select('*').eq('user_id', id).gte('day', d0).lt('day', d1).order('day', { ascending: false })),
+      q(sb.from('tasks').select('*').eq('assigned_to', id).eq('done', true).gte('day', d0).lt('day', d1).order('day', { ascending: false }))
+    ]);
+    const all = ls.map(l => ({ day: l.day, t: l.activity, n: l.notes, k: 'Participación', id: l.id }))
+      .concat(ts.map(x => ({ day: x.day, t: x.title, n: x.notes, k: 'Trabajo hecho' }))).sort((a, b) => a.day < b.day ? 1 : -1);
+    sheet(`<div style="font-family:var(--display);font-size:22px">${esc(m.name)} · ${rkYear}</div>
+      <div class="muted">${esc(puesto(m))} · ${all.length} participacion${all.length === 1 ? '' : 'es'}</div>
+      <ul class="log">${all.map(r => `<li><span class="lt"><span>${esc(r.t)}</span><small>${wday(r.day)} ${fdate(r.day)} · ${r.k}${r.n ? ' · ' + esc(r.n) : ''}</small></span>${r.id ? `<button class="btn small warn" data-unlog="${r.id}" data-who="${esc(id)}">Quitar</button>` : ''}</li>`).join('') || '<li class="muted">Todavía no hay nada apuntado este año.</li>'}</ul>
+      <button class="btn" data-close="1">Cerrar</button>`);
+  } catch (e) { closeSheet(); toast('No se ha podido cargar', e.message, true); }
 }
 
 /* ---------- Panel del equipo ---------- */
@@ -654,12 +672,38 @@ function vAdmin() {
     <label for="kNotes">Notas (opcional)<textarea id="kNotes" maxlength="500" rows="3" placeholder="Ej.: Lleva el botiquín y las linternas">${esc(eT ? eT.notes : '')}</textarea></label>
     <div class="row-btns">${eT ? '<button type="button" class="btn ghost" data-cancel="tasks">Cancelar</button>' : ''}<button class="btn">${eT ? 'Guardar cambios' : 'Asignar trabajo'}</button></div>
   </form>`;
+  const thisYear = new Date().getFullYear();
+  const rk = (ranking || []).filter(r => { const m = team.find(x => x.id === r.user_id); return m && !m.admin; })
+    .map(r => ({ ...r, pts: r.participaciones + r.trabajos })).sort((a, b) => b.pts - a.pts || b.dias - a.dias || b.clientes - a.clientes);
+  const medal = i => ['1º', '2º', '3º'][i] || (i + 1) + 'º';
+  const logPart = `
+  <h3 id="hLog">Implicación del equipo</h3>
+  <div class="card stack">
+    <label for="rkYear">Año<select id="rkYear">${[thisYear, thisYear - 1, thisYear - 2].map(y => opt(y, rkYear, String(y))).join('')}</select></label>
+    ${ranking == null ? '<div class="hint" style="margin:0">Cargando…</div>' : rk.length ? `<div class="stack">${rk.map((r, i) => { const m = team.find(x => x.id === r.user_id);
+      return `<div class="item rank${i < 3 && r.pts ? ' top' + (i + 1) : ''}"><span class="pos num">${medal(i)}</span>${avatarHTML(m, 'avatar-sm')}
+        <div class="info"><div class="t">${esc(m.name)}</div><div class="d">${esc(puesto(m))}</div>
+        <div class="d"><span class="nw">${r.dias} día${r.dias === 1 ? '' : 's'}</span> · <span class="nw">${r.clientes} clientes</span> · <span class="nw">${r.premios} premios</span></div></div>
+        <div class="rk-pts"><b class="num">${r.pts}</b><span>particip.</span><button class="link-small" data-rlog="${esc(r.user_id)}">Ver registro</button></div></div>`; }).join('')}</div>` : '<div class="hint" style="margin:0">Aún no hay nadie en el equipo.</div>'}
+    <div class="hint" style="margin:0">Cuentan las participaciones que apuntes aquí abajo y los trabajos marcados como hechos. Los días, los clientes atendidos (QR escaneados) y los premios entregados se cuentan solos.</div>
+    <div class="row-btns" style="justify-content:flex-start"><button class="btn small ghost" data-export="equipo">Descargar registro</button></div>
+  </div>
+
+  <h3>Apuntar participación</h3>
+  <form class="adm card" id="fLog">
+    <label for="gEv">Fecha de la agenda (opcional)<select id="gEv"><option value="">Ninguna, es otra cosa</option>${D.events.filter(v => v.day <= today()).slice(-15).reverse().map(v => opt(v.id, '', fdate(v.day) + ' · ' + (v.title || (earnById(v.earn_id) || {}).name || ''))).join('')}</select></label>
+    <label for="gAct">Actividad<input id="gAct" required maxlength="120" placeholder="Ej.: Pasaje del terror, ruta de Aracena"></label>
+    <label for="gDay">Fecha<input id="gDay" type="date" required max="${today()}" value="${today()}"></label>
+    <fieldset class="who"><legend>Quién participó</legend>${team.map(m => `<label class="check" for="gW${esc(m.id)}"><input type="checkbox" id="gW${esc(m.id)}" value="${esc(m.id)}"> <span>${esc(m.name)} <small class="muted">${esc(puesto(m))}</small></span></label>`).join('')}</fieldset>
+    <label for="gNotes">Notas (opcional)<input id="gNotes" maxlength="300" placeholder="Ej.: Se quedó hasta recoger todo"></label>
+    <div class="row-btns"><button class="btn">Apuntar</button></div>
+  </form>`;
   const monitorAgenda = `
   <h3>Próximas fechas</h3>
   <div class="stack">${upcoming().map(v => `<div class="item"><div class="info"><div class="t">${esc(v.title || (earnById(v.earn_id) || {}).name || '')}</div><div class="d">${wday(v.day)} ${fdate(v.day)} · ${esc(v.start_time)} · ${esc(v.place)} · ${v.spots >= 999 ? 'entrada libre' : `${v.taken}/${v.spots} plazas`}</div></div></div>`).join('') || '<div class="hint">No hay fechas programadas.</div>'}</div>
   <div class="hint" style="margin-top:12px">Los precios, la agenda, los premios y los datos de los clientes solo los gestiona el jefe.</div>`;
   return `<h2>${isAdmin() ? 'Zona del jefe' : 'Zona del equipo'}</h2>
-` + (isAdmin() ? adminTop + teamPart : myTasksHTML) + monitorPart + (isAdmin() ? adminRest : monitorAgenda);
+` + (isAdmin() ? adminTop + teamPart + logPart : myTasksHTML) + monitorPart + (isAdmin() ? adminRest : monitorAgenda);
 }
 
 async function openAdmin() {
@@ -667,12 +711,13 @@ async function openAdmin() {
   render();
   if (!isAdmin()) return;
   try {
-    const [st, rw, team] = await Promise.all([
+    const [st, rw, team, rk] = await Promise.all([
       rpc('staff_stats'),
       q(sb.from('rewards').select('*').order('cost')),
-      q(sb.from('profiles').select('id,name,code,admin,avatar,position').eq('role', 'staff').order('admin', { ascending: false }).order('name'))
+      q(sb.from('profiles').select('id,name,code,admin,avatar,position').eq('role', 'staff').order('admin', { ascending: false }).order('name')),
+      rpc('staff_ranking', { p_year: rkYear })
     ]);
-    stats = st; D.adminRewards = rw; D.team = team;
+    stats = st; D.adminRewards = rw; D.team = team; ranking = rk;
     if (tab === 'admin') render();
   } catch (e) { toast('Error', e.message, true); }
 }
@@ -858,6 +903,13 @@ async function exportData(kind) {
     name = `movimientos-${t}.csv`;
     const ms = await fetchAll('movements', 'user_id,text,amount,day', 'id');
     rows = [['Fecha', 'Código', 'Nombre', 'Concepto', 'Huellas'], ...ms.map(m => [m.day, who(m.user_id).code, who(m.user_id).name, m.text, m.amount])];
+  } else if (kind === 'equipo') {
+    name = `registro-equipo-${t}.csv`;
+    const [ls, ts] = await Promise.all([fetchAll('staff_log', 'user_id,day,activity,notes', 'id'), fetchAll('tasks', 'assigned_to,day,title,notes,done', 'created_at')]);
+    const all = ls.map(l => [l.day, who(l.user_id).code, who(l.user_id).name, l.activity, 'Participación', l.notes])
+      .concat(ts.filter(x => x.done).map(x => [x.day, who(x.assigned_to).code, who(x.assigned_to).name, x.title, 'Trabajo hecho', x.notes]))
+      .sort((a, b) => a[0] < b[0] ? -1 : 1);
+    rows = [['Fecha', 'Código', 'Nombre', 'Actividad', 'Tipo', 'Notas'], ...all];
   } else {
     name = `canjes-${t}.csv`;
     const rs = await fetchAll('redemptions', 'user_id,code,name,coupon,used,created_day,used_day', 'id');
@@ -954,6 +1006,8 @@ document.addEventListener('click', async ev => {
   else if (d.cam === 'canje') openScanner(code => { $('#cjCode').value = code; doCanje(code); });
   else if (d.task) { b.disabled = true; try { await rpc('mark_task', { p_id: d.task, p_done: d.done === '1' }); await load(); render(); if (d.done === '1') toast('¡Hecho!', 'Trabajo completado'); } catch (e) { toast('No se ha podido guardar', e.message, true); b.disabled = false; } }
   else if (d.puesto) askPuesto(d.puesto);
+  else if (d.rlog) showLog(d.rlog);
+  else if (d.unlog) { b.disabled = true; try { await q(sb.from('staff_log').delete().eq('id', d.unlog)); toast('Quitado', 'Ya no cuenta en el registro', true); ranking = await rpc('staff_ranking', { p_year: rkYear }); render(); showLog(d.who); } catch (e) { toast('No se ha podido quitar', e.message, true); b.disabled = false; } }
   else if (d.assign) { assignTo = d.assign; editing.tasks = null; render(); const h = $('#hTask'); if (h) h.scrollIntoView({ block: 'start' }); const i = $('#kTitle'); if (i) i.focus({ preventScroll: true }); }
   else if (d.edit) { const [t, id] = d.edit.split(':'); editing[t] = id; render(); const h = document.getElementById(FORM_OF[t]); if (h) h.scrollIntoView({ block: 'start' }); }
   else if (d.cancel) { editing[d.cancel] = null; render(); }
@@ -972,7 +1026,10 @@ document.addEventListener('click', async ev => {
 });
 
 document.addEventListener('change', ev => {
-  if (ev.target.id !== 'kEv' || !D) return;
+  if (!D) return;
+  if (ev.target.id === 'rkYear') { rkYear = +ev.target.value; ranking = null; render(); rpc('staff_ranking', { p_year: rkYear }).then(r => { ranking = r; render(); }, e => toast('No se ha podido cargar', e.message, true)); return; }
+  if (ev.target.id === 'gEv') { const v = D.events.find(x => x.id === ev.target.value); if (v) { $('#gAct').value = v.title || (earnById(v.earn_id) || {}).name || ''; $('#gDay').value = v.day; } return; }
+  if (ev.target.id !== 'kEv') return;
   const v = D.events.find(x => x.id === ev.target.value); if (!v) return;
   $('#kDay').value = v.day; $('#kTime').value = v.start_time || ''; $('#kPlace').value = v.place || '';
 });
@@ -1053,6 +1110,14 @@ document.addEventListener('submit', async ev => {
       const who = (D.team || []).find(m => m.id === data.assigned_to);
       toast(editing.tasks ? 'Guardado' : 'Trabajo asignado', who ? `${who.name} lo verá en su zona del equipo` : 'Ya está en la lista');
       editing.tasks = null; assignTo = data.assigned_to;
+    }
+    else if (f.id === 'fLog') {
+      const who = [...f.querySelectorAll('.who input:checked')].map(i => i.value);
+      if (!who.length) throw new Error('Marca quién participó.');
+      const base = { day: val(f, '#gDay'), activity: val(f, '#gAct').trim(), notes: val(f, '#gNotes').trim(), event_id: val(f, '#gEv') || null };
+      if (!base.activity || !base.day) throw new Error('Pon la actividad y la fecha.');
+      await q(sb.from('staff_log').insert(who.map(u => ({ ...base, user_id: u }))));
+      toast('Apuntado', `${who.length} persona${who.length > 1 ? 's' : ''} en ${base.activity}`);
     }
     else if (f.id === 'fTeam') {
       const r = await rpc('admin_set_role', { p_code: val(f, '#tCode'), p_role: val(f, '#tRole') });

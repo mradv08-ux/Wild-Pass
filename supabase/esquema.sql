@@ -720,3 +720,19 @@ create table if not exists public.tasks (
 alter table public.tasks enable row level security;
 -- Políticas: "ver trabajos" (jefe o el propio monitor), insert/update/delete solo jefe.
 -- Función mark_task(p_id, p_done): el monitor marca como hecho un trabajo suyo.
+
+-- v12: registro de participaciones del equipo (implicación anual)
+create table if not exists public.staff_log (
+  id bigint generated always as identity primary key,
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  day date not null,
+  activity text not null check (length(activity) between 1 and 120),
+  notes text not null default '' check (length(notes) <= 300),
+  event_id text references public.events(id) on delete set null,
+  created_by uuid references public.profiles(id) on delete set null default auth.uid(),
+  created_at timestamptz not null default now()
+);
+alter table public.staff_log enable row level security;
+-- Políticas: ver (jefe o el propio trabajador), apuntar/cambiar/quitar solo jefe.
+-- Función staff_ranking(p_year): resumen por trabajador (participaciones, trabajos hechos, días, clientes, premios).
+-- v11: profiles.position (puesto) y admin_set_position(p_id, p_position), solo jefe.

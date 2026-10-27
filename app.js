@@ -478,15 +478,11 @@ async function showLog(id) {
   const d0 = rkYear + '-01-01', d1 = (rkYear + 1) + '-01-01';
   sheet(`<div style="font-family:var(--display);font-size:22px">${esc(m.name)} · ${rkYear}</div><div class="hint" style="margin:0">Cargando…</div>`);
   try {
-    const [ls, ts] = await Promise.all([
-      q(sb.from('staff_log').select('*').eq('user_id', id).gte('day', d0).lt('day', d1).order('day', { ascending: false })),
-      q(sb.from('tasks').select('*').eq('assigned_to', id).eq('done', true).gte('day', d0).lt('day', d1).order('day', { ascending: false }))
-    ]);
-    const all = ls.map(l => ({ day: l.day, t: l.activity, n: l.notes, k: 'Participación', id: l.id }))
-      .concat(ts.map(x => ({ day: x.day, t: x.title, n: x.notes, k: 'Trabajo hecho' }))).sort((a, b) => a.day < b.day ? 1 : -1);
+    const ls = await q(sb.from('staff_log').select('*').eq('user_id', id).gte('day', d0).lt('day', d1).order('day', { ascending: false }));
+    const all = ls.map(l => ({ day: l.day, t: l.activity, n: l.notes, id: l.id }));
     sheet(`<div style="font-family:var(--display);font-size:22px">${esc(m.name)} · ${rkYear}</div>
-      <div class="muted">${esc(puesto(m))} · ${all.length} participacion${all.length === 1 ? '' : 'es'}</div>
-      <ul class="log">${all.map(r => `<li><span class="lt"><span>${esc(r.t)}</span><small>${wday(r.day)} ${fdate(r.day)} · ${r.k}${r.n ? ' · ' + esc(r.n) : ''}</small></span>${r.id ? `<button class="btn small warn" data-unlog="${r.id}" data-who="${esc(id)}">Quitar</button>` : ''}</li>`).join('') || '<li class="muted">Todavía no hay nada apuntado este año.</li>'}</ul>
+      <div class="muted">${esc(puesto(m))} · ${all.length} actividad${all.length === 1 ? '' : 'es'}</div>
+      <ul class="log">${all.map(r => `<li><span class="lt"><span>${esc(r.t)}${r.n ? ` · <b>${esc(r.n)}</b>` : ''}</span><small>${wday(r.day)} ${fdate(r.day)}</small></span>${r.id ? `<button class="btn small warn" data-unlog="${r.id}" data-who="${esc(id)}">Quitar</button>` : ''}</li>`).join('') || '<li class="muted">Todavía no hay nada apuntado este año.</li>'}</ul>
       <button class="btn" data-close="1">Cerrar</button>`);
   } catch (e) { closeSheet(); toast('No se ha podido cargar', e.message, true); }
 }
@@ -674,7 +670,7 @@ function vAdmin() {
   </form>`;
   const thisYear = new Date().getFullYear();
   const rk = (ranking || []).filter(r => { const m = team.find(x => x.id === r.user_id); return m && !m.admin; })
-    .map(r => ({ ...r, pts: r.participaciones + r.trabajos })).sort((a, b) => b.pts - a.pts || b.dias - a.dias || b.clientes - a.clientes);
+    .map(r => ({ ...r, pts: r.participaciones })).sort((a, b) => b.pts - a.pts || a.name.localeCompare(b.name));
   const medal = i => ['1º', '2º', '3º'][i] || (i + 1) + 'º';
   const logPart = `
   <h3 id="hLog">Implicación del equipo</h3>
@@ -682,10 +678,9 @@ function vAdmin() {
     <label for="rkYear">Año<select id="rkYear">${[thisYear, thisYear - 1, thisYear - 2].map(y => opt(y, rkYear, String(y))).join('')}</select></label>
     ${ranking == null ? '<div class="hint" style="margin:0">Cargando…</div>' : rk.length ? `<div class="stack">${rk.map((r, i) => { const m = team.find(x => x.id === r.user_id);
       return `<div class="item rank${i < 3 && r.pts ? ' top' + (i + 1) : ''}"><span class="pos num">${medal(i)}</span>${avatarHTML(m, 'avatar-sm')}
-        <div class="info"><div class="t">${esc(m.name)}</div><div class="d">${esc(puesto(m))}</div>
-        <div class="d"><span class="nw">${r.dias} día${r.dias === 1 ? '' : 's'}</span> · <span class="nw">${r.clientes} clientes</span> · <span class="nw">${r.premios} premios</span></div></div>
-        <div class="rk-pts"><b class="num">${r.pts}</b><span>particip.</span><button class="link-small" data-rlog="${esc(r.user_id)}">Ver registro</button></div></div>`; }).join('')}</div>` : '<div class="hint" style="margin:0">Aún no hay nadie en el equipo.</div>'}
-    <div class="hint" style="margin:0">Cuentan las participaciones que apuntes aquí abajo y los trabajos marcados como hechos. Los días, los clientes atendidos (QR escaneados) y los premios entregados se cuentan solos.</div>
+        <div class="info"><div class="t">${esc(m.name)}</div><div class="d">${esc(puesto(m))}</div></div>
+        <div class="rk-pts"><b class="num">${r.pts}</b><span>${r.pts === 1 ? 'actividad' : 'actividades'}</span><button class="link-small" data-rlog="${esc(r.user_id)}">Ver registro</button></div></div>`; }).join('')}</div>` : '<div class="hint" style="margin:0">Aún no hay nadie en el equipo.</div>'}
+    <div class="hint" style="margin:0">Cuenta cada actividad que apuntes aquí abajo, con lo que hizo cada uno.</div>
     <div class="row-btns" style="justify-content:flex-start"><button class="btn small ghost" data-export="equipo">Descargar registro</button></div>
   </div>
 
@@ -694,8 +689,10 @@ function vAdmin() {
     <label for="gEv">Fecha de la agenda (opcional)<select id="gEv"><option value="">Ninguna, es otra cosa</option>${D.events.filter(v => v.day <= today()).slice(-15).reverse().map(v => opt(v.id, '', fdate(v.day) + ' · ' + (v.title || (earnById(v.earn_id) || {}).name || ''))).join('')}</select></label>
     <label for="gAct">Actividad<input id="gAct" required maxlength="120" placeholder="Ej.: Pasaje del terror, ruta de Aracena"></label>
     <label for="gDay">Fecha<input id="gDay" type="date" required max="${today()}" value="${today()}"></label>
-    <fieldset class="who"><legend>Quién participó</legend>${team.map(m => `<label class="check" for="gW${esc(m.id)}"><input type="checkbox" id="gW${esc(m.id)}" value="${esc(m.id)}"> <span>${esc(m.name)} <small class="muted">${esc(puesto(m))}</small></span></label>`).join('')}</fieldset>
-    <label for="gNotes">Notas (opcional)<input id="gNotes" maxlength="300" placeholder="Ej.: Se quedó hasta recoger todo"></label>
+    <fieldset class="who"><legend>Quién participó y qué hizo</legend>${team.map(m => `<div class="who-row">
+      <label class="check" for="gW${esc(m.id)}"><input type="checkbox" id="gW${esc(m.id)}" value="${esc(m.id)}"> <span>${esc(m.name)}</span></label>
+      <input class="who-what" id="gD${esc(m.id)}" data-for="gW${esc(m.id)}" list="tareasLista" maxlength="120" placeholder="Qué hizo" aria-label="Qué hizo ${esc(m.name)}"></div>`).join('')}</fieldset>
+    <datalist id="tareasLista">${['Registrar códigos', 'Asustar', 'Grabar y editar', 'Fotos', 'Montaje', 'Guía', 'Monitor', 'Atención al público'].map(x => `<option value="${x}">`).join('')}</datalist>
     <div class="row-btns"><button class="btn">Apuntar</button></div>
   </form>`;
   const monitorAgenda = `
@@ -905,11 +902,8 @@ async function exportData(kind) {
     rows = [['Fecha', 'Código', 'Nombre', 'Concepto', 'Huellas'], ...ms.map(m => [m.day, who(m.user_id).code, who(m.user_id).name, m.text, m.amount])];
   } else if (kind === 'equipo') {
     name = `registro-equipo-${t}.csv`;
-    const [ls, ts] = await Promise.all([fetchAll('staff_log', 'user_id,day,activity,notes', 'id'), fetchAll('tasks', 'assigned_to,day,title,notes,done', 'created_at')]);
-    const all = ls.map(l => [l.day, who(l.user_id).code, who(l.user_id).name, l.activity, 'Participación', l.notes])
-      .concat(ts.filter(x => x.done).map(x => [x.day, who(x.assigned_to).code, who(x.assigned_to).name, x.title, 'Trabajo hecho', x.notes]))
-      .sort((a, b) => a[0] < b[0] ? -1 : 1);
-    rows = [['Fecha', 'Código', 'Nombre', 'Actividad', 'Tipo', 'Notas'], ...all];
+    const ls = await fetchAll('staff_log', 'user_id,day,activity,notes', 'id');
+    rows = [['Fecha', 'Nombre', 'Actividad', 'Qué hizo'], ...ls.sort((a, b) => a.day < b.day ? -1 : 1).map(l => [l.day, who(l.user_id).name, l.activity, l.notes])];
   } else {
     name = `canjes-${t}.csv`;
     const rs = await fetchAll('redemptions', 'user_id,code,name,coupon,used,created_day,used_day', 'id');
@@ -1025,6 +1019,10 @@ document.addEventListener('click', async ev => {
   }
 });
 
+document.addEventListener('input', ev => {
+  const t = ev.target; if (!t.classList || !t.classList.contains('who-what')) return;
+  const c = document.getElementById(t.dataset.for); if (c && t.value.trim()) c.checked = true;
+});
 document.addEventListener('change', ev => {
   if (!D) return;
   if (ev.target.id === 'rkYear') { rkYear = +ev.target.value; ranking = null; render(); rpc('staff_ranking', { p_year: rkYear }).then(r => { ranking = r; render(); }, e => toast('No se ha podido cargar', e.message, true)); return; }
@@ -1112,11 +1110,11 @@ document.addEventListener('submit', async ev => {
       editing.tasks = null; assignTo = data.assigned_to;
     }
     else if (f.id === 'fLog') {
-      const who = [...f.querySelectorAll('.who input:checked')].map(i => i.value);
+      const who = [...f.querySelectorAll('.who input[type=checkbox]:checked')].map(i => ({ user_id: i.value, notes: f.querySelector('#gD' + i.value).value.trim() }));
       if (!who.length) throw new Error('Marca quién participó.');
-      const base = { day: val(f, '#gDay'), activity: val(f, '#gAct').trim(), notes: val(f, '#gNotes').trim(), event_id: val(f, '#gEv') || null };
+      const base = { day: val(f, '#gDay'), activity: val(f, '#gAct').trim(), event_id: val(f, '#gEv') || null };
       if (!base.activity || !base.day) throw new Error('Pon la actividad y la fecha.');
-      await q(sb.from('staff_log').insert(who.map(u => ({ ...base, user_id: u }))));
+      await q(sb.from('staff_log').insert(who.map(w => ({ ...base, ...w }))));
       toast('Apuntado', `${who.length} persona${who.length > 1 ? 's' : ''} en ${base.activity}`);
     }
     else if (f.id === 'fTeam') {

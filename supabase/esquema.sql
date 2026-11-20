@@ -736,3 +736,6 @@ alter table public.staff_log enable row level security;
 -- Políticas: ver (jefe o el propio trabajador), apuntar/cambiar/quitar solo jefe.
 -- Función staff_ranking(p_year): resumen por trabajador (participaciones, trabajos hechos, días, clientes, premios).
 -- v11: profiles.position (puesto) y admin_set_position(p_id, p_position), solo jefe.
+
+-- v13: staff_scan_merch(p_code, p_item, p_qty): registra varias unidades de merch
+-- (1 a 20) y permite varias compras el mismo día. Solo equipo.

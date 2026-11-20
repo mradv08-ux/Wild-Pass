@@ -313,3 +313,4 @@ fieldset.who label.check{min-height:32px}
 .qr-box img,.qr-box canvas{image-rendering:pixelated;image-rendering:crisp-edges}
 .photo-scan{display:flex;align-items:center;justify-content:center;cursor:pointer}
 #reader video{width:100%!important;height:auto!important;object-fit:cover}
+[hidden]{display:none!important}

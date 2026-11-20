@@ -520,13 +520,15 @@ function vAdmin() {
     </div>
   </div>
 `;
-  const monitorPart = `  <h3>Registrar asistencia</h3>
+  const monMerch = (earnById(monAct || (acts[0] || {}).id) || {}).kind === 'merch';
+  const monitorPart = `  <h3>Registrar asistencia o compra</h3>
   <form class="adm card" id="fMon">
-    <label for="mAct">Actividad de hoy<select id="mAct">${acts.map(e => opt(e.id, monAct, e.name)).join('')}</select></label>
+    <label for="mAct">Actividad o compra<select id="mAct">${acts.map(e => opt(e.id, monAct, e.name)).join('')}</select></label>
+    <label for="mQty" id="mQtyBox"${monMerch ? '' : ' hidden'}>Cantidad<select id="mQty">${[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => `<option value="${n}">${n}</option>`).join('')}</select></label>
     <button type="button" class="btn cam-btn" data-cam="mon">${ICONS.cam}<span>Escanear QR con la cámara</span></button>
     <label for="mCode">O escribe el código<input id="mCode" placeholder="WS-XXXXX" autocomplete="off" autocapitalize="characters" style="text-transform:uppercase"></label>
-    <label for="mInv">¿Le ha invitado alguien? (opcional)<input id="mInv" placeholder="Código de quien le invitó" autocomplete="off" autocapitalize="characters" style="text-transform:uppercase"></label>
-    <div class="hint">La invitación solo cuenta en la primera actividad del cliente.</div>
+    <label for="mInv" id="mInvBox"${monMerch ? ' hidden' : ''}>¿Le ha invitado alguien? (opcional)<input id="mInv" placeholder="Código de quien le invitó" autocomplete="off" autocapitalize="characters" style="text-transform:uppercase"></label>
+    <div class="hint" id="mInvHint"${monMerch ? ' hidden' : ''}>La invitación solo cuenta en la primera actividad del cliente.</div>
     <button class="btn ghost">Sumar Huellas con el código escrito</button>
     ${monMsg ? `<div class="mon-msg ${monMsg.ok ? 'ok' : 'err'}" role="status">${monMsg.ok ? `<div class="mon-who">${avatarHTML({ avatar: monMsg.img, name: monMsg.name }, 'avatar-md')}<span>${monMsg.img ? 'Comprueba que es la persona de la foto.' : 'Este cliente no tiene foto.'}</span></div>` : ''}${esc(monMsg.t)}</div>` : ''}
   </form>
@@ -862,11 +864,14 @@ function openScanner(onCode) {
 }
 
 async function doMonScan(code) {
-  const inv = $('#mInv') ? $('#mInv').value : '';
   monAct = $('#mAct').value;
+  const merch = (earnById(monAct) || {}).kind === 'merch';
+  const inv = !merch && $('#mInv') ? $('#mInv').value : '';
+  const qty = merch && $('#mQty') ? +$('#mQty').value || 1 : 1;
   try {
-    const r = await rpc('staff_scan', { p_code: code, p_item: monAct, p_inviter: inv || null });
-    let t = `+${fmt(r.value)} Huellas para ${r.name}. Ahora tiene ${fmt(r.balance)}.`;
+    const r = merch ? await rpc('staff_scan_merch', { p_code: code, p_item: monAct, p_qty: qty })
+                    : await rpc('staff_scan', { p_code: code, p_item: monAct, p_inviter: inv || null });
+    let t = `+${fmt(r.value)} Huellas para ${r.name}${merch ? ` por ${qty} × ${(earnById(monAct) || {}).name}` : ''}. Ahora tiene ${fmt(r.balance)}.`;
     (r.challenges || []).forEach(c => { t += ` Completa el reto «${c.name}» (+${fmt(c.reward)}).`; });
     if (r.note) t += ' ' + r.note;
     monMsg = { ok: true, t, img: r.avatar || null, name: r.name };
@@ -1040,6 +1045,13 @@ document.addEventListener('input', ev => {
   const c = document.getElementById(t.dataset.for); if (c && t.value.trim()) c.checked = true;
 });
 document.addEventListener('change', ev => {
+  if (ev.target.id === 'mAct' && D) {
+    monAct = ev.target.value; const merch = (earnById(monAct) || {}).kind === 'merch';
+    ['mQtyBox'].forEach(id => { const el = $('#' + id); if (el) el.hidden = !merch; });
+    ['mInvBox', 'mInvHint'].forEach(id => { const el = $('#' + id); if (el) el.hidden = merch; });
+    if (!merch && $('#mQty')) $('#mQty').value = '1';
+    return;
+  }
   if (!D) return;
   if (ev.target.id === 'rkYear') { rkYear = +ev.target.value; ranking = null; render(); rpc('staff_ranking', { p_year: rkYear }).then(r => { ranking = r; render(); }, e => toast('No se ha podido cargar', e.message, true)); return; }
   if (ev.target.id === 'gEv') { const v = D.events.find(x => x.id === ev.target.value); if (v) { $('#gAct').value = v.title || (earnById(v.earn_id) || {}).name || ''; $('#gDay').value = v.day; } return; }

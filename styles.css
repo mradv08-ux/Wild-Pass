@@ -309,3 +309,7 @@ fieldset.who label.check{min-height:32px}
 .sheet .log .btn{flex:none;align-self:center}
 .who-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:8px;align-items:center}
 .who-row label.check span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* QR más fácil de leer y botón de foto del escáner */
+.qr-box img,.qr-box canvas{image-rendering:pixelated;image-rendering:crisp-edges}
+.photo-scan{display:flex;align-items:center;justify-content:center;cursor:pointer}
+#reader video{width:100%!important;height:auto!important;object-fit:cover}

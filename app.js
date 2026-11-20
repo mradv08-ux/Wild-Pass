@@ -788,14 +788,14 @@ function showMyQR() {
   const p = me();
   sheet(`<div style="justify-items:center;text-align:center;display:grid;gap:12px">
     <div style="font-family:var(--display);font-size:22px">Mi pase de superviviente</div>
-    <div class="muted">Enséñaselo al monitor al empezar la actividad.</div>
+    <div class="muted">Enséñaselo al monitor al empezar la actividad. Si no lo lee, sube el brillo de la pantalla.</div>
     <div id="qrBox" class="qr-box"></div>
     ${avatarHTML(p, 'avatar-md')}
     <div class="num" style="font-size:24px;font-weight:700;letter-spacing:.12em">${esc(p.code)}</div>
     <div class="muted" style="font-size:13px">${esc(p.name)} · nivel ${esc(levels()[levelIdx()].name)}</div>
     <button class="btn" data-close="1" style="width:100%">Cerrar</button></div>`);
   const box = $('#qrBox');
-  try { new QRCode(box, { text: p.code, width: 220, height: 220, colorDark: '#15281b', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M }); }
+  try { new QRCode(box, { text: p.code, width: 240, height: 240, colorDark: '#000000', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.L }); }
   catch (e) { box.style.lineHeight = '1.4'; box.textContent = 'No se ha podido dibujar el QR. Usa el código de debajo.'; }
 }
 
@@ -835,14 +835,30 @@ function askRedeem(id) {
 /* ---------- Escáner de cámara (equipo) ---------- */
 function openScanner(onCode) {
   sheet(`<div style="font-family:var(--display);font-size:22px">Escanear QR</div><div id="reader"></div>
-    <div class="hint" style="margin:0" id="scanHint">Apunta la cámara al código.</div><button class="btn ghost" id="stopScan">Cancelar</button>`);
-  const stop = () => { const s = scanner; scanner = null; if (s) { try { s.stop().catch(() => {}).finally(() => { try { s.clear(); } catch (e) {} }); } catch (e) {} } closeSheet(); };
+    <div class="hint" style="margin:0" id="scanHint">Apunta la cámara al QR, a unos 20 cm.</div>
+    <label class="btn ghost photo-scan" for="scanPhoto">Hacer una foto al QR<input id="scanPhoto" type="file" accept="image/*" capture="environment" hidden></label>
+    <button class="btn ghost" id="stopScan">Cancelar</button>`);
+  let done = false, slow = null;
+  const stop = () => { clearTimeout(slow); const s = scanner; scanner = null; if (s) { try { s.stop().catch(() => {}).finally(() => { try { s.clear(); } catch (e) {} }); } catch (e) {} } closeSheet(); };
+  const found = text => { if (done) return; done = true; const code = String(text).trim().toUpperCase(); stop(); onCode(code); };
   $('#stopScan').onclick = stop;
   if (!window.Html5Qrcode) { $('#scanHint').textContent = 'No se ha podido cargar el escáner. Escribe el código a mano.'; return; }
-  scanner = new Html5Qrcode('reader');
-  scanner.start({ facingMode: 'environment' }, { fps: 10, qrbox: { width: 220, height: 220 } },
-    text => { const code = String(text).trim().toUpperCase(); stop(); onCode(code); }, () => {})
-    .catch(() => { $('#scanHint').textContent = 'No se ha podido abrir la cámara. Revisa el permiso del navegador o escribe el código a mano.'; });
+  const F = window.Html5QrcodeSupportedFormats;
+  scanner = new Html5Qrcode('reader', { verbose: false, formatsToSupport: F ? [F.QR_CODE] : undefined, experimentalFeatures: { useBarCodeDetectorIfSupported: true } });
+  // Plan B: foto con la cámara normal del móvil (enfoca mejor de cerca).
+  $('#scanPhoto').onchange = async ev => {
+    const file = ev.target.files && ev.target.files[0]; if (!file) return;
+    $('#scanHint').textContent = 'Leyendo la foto…';
+    try { const s = scanner; if (s && s.isScanning) await s.stop(); const t = await s.scanFile(file, false); found(t); }
+    catch (e) { $('#scanHint').textContent = 'No se ve el QR en la foto. Prueba otra vez más cerca y sin reflejos, o escribe el código a mano.'; }
+  };
+  scanner.start({ facingMode: 'environment' }, {
+      fps: 15,
+      qrbox: (w, h) => { const t = Math.max(160, Math.floor(Math.min(w, h) * 0.75)); return { width: t, height: t }; },
+      videoConstraints: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+    }, found, () => {})
+    .then(() => { slow = setTimeout(() => { if (!done && $('#scanHint')) $('#scanHint').textContent = '¿No lo lee? Pide que suba el brillo de su pantalla, aleja o acerca un poco el móvil, o pulsa «Hacer una foto al QR».'; }, 7000); })
+    .catch(() => { $('#scanHint').textContent = 'No se ha podido abrir la cámara. Revisa el permiso de la cámara o pulsa «Hacer una foto al QR».'; });
 }
 
 async function doMonScan(code) {

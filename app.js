@@ -156,7 +156,6 @@ async function load() {
     progress: Object.fromEntries(progress.map(p => [p.challenge_id, p.progress])),
     tasks: prof.role === 'staff' ? await q(sb.from('tasks').select('*').gte('day', addDays(t, -7)).order('day').order('start_time')) : []
   };
-  await loadWild();
   if (!monAct || !earnById(monAct)) { const f = D.earn.find(e => e.kind !== 'comunidad'); monAct = f ? f.id : null; }
 }
 
@@ -265,11 +264,10 @@ const ICONS = {
   premios: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="8" width="18" height="13" rx="1"/><path d="M12 8v13M3 12h18M12 8s-2-5-5-4 0 4 5 4zm0 0s2-5 5-4 0 4-5 4z"/></svg>',
   retos: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 20l6-12 4 7 3-4 5 9z"/><path d="M9 8V3l4 2-4 2"/></svg>',
   admin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-2-1.2L14 3h-4l-.5 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6a7 7 0 0 0 0 2.4l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 2 1.2L10 21h4l.5-2.6a7 7 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6c.1-.4.1-.8.1-1.2z"/></svg>',
-  wild: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3C7.6 3 4 6.2 4 10.4c0 2.4 1.2 4.3 3 5.6V19a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-3c1.8-1.3 3-3.2 3-5.6C20 6.2 16.4 3 12 3z"/><circle cx="9" cy="11" r="1.6"/><circle cx="15" cy="11" r="1.6"/><path d="M10 20v-2M14 20v-2"/></svg>',
   cam: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h3l2-3h6l2 3h3v13H4z"/><circle cx="12" cy="13" r="4"/></svg>'
 };
 const PROFILE_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>';
-const tabs = () => [['pasaporte', 'Refugio']].concat(wildOn() ? [['wild', 'Wild Game']] : [], [['ganar', 'Ganar'], ['premios', 'Premios'], ['retos', 'Retos']], isStaff() ? [['admin', 'Equipo']] : []);
+const tabs = () => [['pasaporte', 'Refugio'], ['ganar', 'Ganar'], ['premios', 'Premios'], ['retos', 'Retos']].concat(isStaff() ? [['admin', 'Equipo']] : []);
 
 function render() {
   if (!D || !$('#view')) return;
@@ -280,7 +278,7 @@ function render() {
   $('#modePill').textContent = isAdmin() ? 'Modo jefe' : 'Equipo';
   $('#profBtn').classList.toggle('on', tab === 'perfil');
   $('#profBtn').innerHTML = me().avatar ? `<img src="${esc(me().avatar)}" alt="">` : PROFILE_ICON;
-  const views = { pasaporte: vPasaporte, wild: vWild, ganar: vGanar, premios: vPremios, retos: vRetos, admin: vAdmin, perfil: vPerfil };
+  const views = { pasaporte: vPasaporte, ganar: vGanar, premios: vPremios, retos: vRetos, admin: vAdmin, perfil: vPerfil };
   $('#view').innerHTML = (views[tab] || vPasaporte)();
   if (tab === 'pasaporte') animateBalance();
 }
@@ -323,7 +321,6 @@ function vPasaporte() {
     <button class="btn qr-btn" data-myqr="1">${ICONS.ganar}<span>Mostrar mi QR</span></button>
   </section>
   ${pend ? `<button class="pending-bar" data-tab="premios"><span>Tienes <b>${pend}</b> premio${pend > 1 ? 's' : ''} por recoger</span><span>Ver código</span></button>` : ''}
-  ${wildOn() ? wildBanner() : ''}
   ${up.length ? `<h3>Tu próxima aventura</h3><div class="stack">${evCard(up[0])}</div>${up.length > 1 ? `<button class="link-btn" data-tab="ganar">Ver las ${up.length} próximas aventuras</button>` : ''}` : ''}
   ${!p.birth ? `<div class="bday-prompt"><span><b>¿Cuándo es tu cumpleaños?</b> Ese día te regalamos ${fmt(bonusBday)} Huellas.</span><button class="btn small" data-tab="perfil">Añadir</button></div>` : ''}
   <h3>Tu próximo premio</h3>
@@ -441,113 +438,6 @@ function vPerfil() {
     ${confirmDel ? `<div class="card stack"><b>¿Borrar tu cuenta?</b><span class="muted" style="font-size:13px">Se borrarán tu cuenta, tus Huellas, tus sellos y tus premios sin recoger. No se puede deshacer.</span><div class="row-btns"><button class="btn ghost small" data-delacc="no">Cancelar</button><button class="btn warn small" data-delacc="yes">Sí, borrar mi cuenta</button></div></div>`
       : '<button class="btn warn" data-delacc="ask">Borrar mi cuenta</button>'}
   </div>`;
-}
-
-/* ---------- Wild Game (evento temporal de eliminación) ---------- */
-let wgChannel = null, wgOutDay = null, wgEditDay = null, wgConfirmLeave = false;
-const wildOn = () => !!(D && D.settings && D.settings.wild_game && D.settings.wild_game.active);
-async function loadWild() {
-  if (!wildOn()) { D.wgDays = []; D.wgPlayers = []; wgUnsub(); return; }
-  const [days, players] = await Promise.all([
-    q(sb.from('wg_days').select('*').order('day').order('created_at')),
-    q(sb.from('wg_players').select('*').order('num'))
-  ]);
-  D.wgDays = days; D.wgPlayers = players;
-  if (!wgChannel) wgChannel = sb.channel('wild-game').on('postgres_changes', { event: '*', schema: 'public', table: 'wg_players' }, () => {
-    clearTimeout(wgChannel._t); wgChannel._t = setTimeout(async () => { try { await loadWild(); if (tab === 'wild' || tab === 'pasaporte') render(); } catch (e) {} }, 600);
-  }).subscribe();
-}
-function wgUnsub() { if (wgChannel) { sb.removeChannel(wgChannel); wgChannel = null; } }
-function wgCounts() {
-  const ps = (D.wgPlayers || []).filter(p => !p.left_at), alive = ps.filter(p => !p.out_at);
-  return { ps, alive, out: ps.filter(p => p.out_at) };
-}
-const wgNum = n => '#' + String(n).padStart(3, '0');
-const wgDay = id => (D.wgDays || []).find(d => d.id === id);
-// Cuenta atrás hasta el inicio (settings.wild_game.start, AAAA-MM-DD).
-function wgStart() {
-  const st = (D.settings.wild_game || {}).start; if (!st || st < today()) return null;
-  const n = Math.round((new Date(st + 'T12:00') - new Date(today() + 'T12:00')) / 864e5);
-  return { st, n, txt: 'Empieza el ' + new Date(st + 'T12:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }), left: n === 0 ? '¡Empieza hoy!' : n === 1 ? '¡Empieza mañana!' : `Faltan ${n} días` };
-}
-function wildBanner() {
-  const { ps, alive } = wgCounts(), mine = (D.wgPlayers || []).find(p => p.user_id === me().id && !p.left_at);
-  return `<button class="wg-banner" data-tab="wild"><span class="wg-title">Wild Game</span>
-    <span class="wg-sub">${wgStart() ? `${esc(wgStart().txt)} · ` : ''}${mine ? (mine.out_at ? 'Has sido eliminado. Sigue la partida.' : `Estás dentro · ${wgNum(mine.num)}`) : 'Inscríbete ya'}</span>
-    <span class="wg-mini"><b>${alive.length}</b> quedan de ${ps.length}</span></button>`;
-}
-const BLOOD = '<svg class="blood" viewBox="0 0 120 60" aria-hidden="true"><path d="M8 30c10-6 22-4 34-8 10-3 18-12 30-10 12 2 22 10 38 8-12 6-22 4-34 10-10 5-16 12-30 12S22 34 8 30z"/><circle cx="96" cy="14" r="4"/><circle cx="20" cy="46" r="3"/><circle cx="62" cy="52" r="2.5"/><path d="M58 40c1 6 0 10-2 14-2-4-3-8-2-14z"/><path d="M84 38c1 4 0 7-1.5 9-1.5-2-2-5-1-9z"/></svg>';
-function vWild() {
-  const g = D.settings.wild_game || {}, { ps, alive, out } = wgCounts(), admin = isAdmin();
-  const mine = (D.wgPlayers || []).find(p => p.user_id === me().id);
-  const days = D.wgDays || [], past = days.filter(d => d.day <= today()), cur = past[past.length - 1];
-  const winner = alive.length === 1 && out.length > 0 ? alive[0] : null;
-  let status;
-  if (!mine || mine.left_at) status = g.signup_open
-    ? `<div class="muted">${mine ? 'Te saliste del juego.' : 'Aún no estás inscrito.'}</div><button class="btn wg-join" data-wg="join">${mine ? 'Volver a inscribirme' : 'Inscribirme'}</button>`
-    : '<div class="muted">Las inscripciones están cerradas.</div>';
-  else if (mine.out_at) { const od = wgDay(mine.out_day); status = `<div class="wg-me out"><b>${wgNum(mine.num)}</b> Has sido eliminado${od ? ` en el ${esc(od.game)} (${wday(od.day)} ${fdate(od.day)})` : ''}. ¡Gracias por jugar!</div>`; }
-  else status = `<div class="wg-me"><b>${wgNum(mine.num)}</b> ${winner ? '¡Eres el último superviviente!' : 'Estás dentro. Aguanta.'}</div>
-    ${wgConfirmLeave ? '<div class="row-btns"><button class="btn ghost small" data-wg="noleave">No, sigo</button><button class="btn warn small" data-wg="leave">Sí, salirme</button></div>' : '<button class="link-small" data-wg="askleave">Salirme del juego</button>'}`;
-  const tile = p => { const od = p.out_at && wgDay(p.out_day);
-    return `<div class="wg-p${p.out_at ? ' out' : ''}${p.user_id === me().id ? ' me' : ''}${winner && p === winner ? ' win' : ''}">
-      ${p.out_at ? BLOOD : ''}<span class="n num">${wgNum(p.num)}</span><span class="nm">${esc(p.name)}</span>
-      ${p.out_at ? `<span class="od">${od ? esc(od.game) + ' · ' + fdate(od.day) : 'Eliminado'}</span>` : ''}
-      ${admin ? (p.out_at ? `<button class="btn small ghost" data-wgrev="${esc(p.user_id)}">Revivir</button>` : `<button class="btn small warn" data-wgout="${esc(p.user_id)}">Eliminar</button>`) : ''}</div>`; };
-  const sorted = alive.slice().sort((a, b) => a.num - b.num).concat(out.slice().sort((a, b) => (b.out_at > a.out_at ? 1 : -1)));
-  const outIn = d => out.filter(p => p.out_day === d.id).length;
-  const eD = wgEditDay && days.find(d => d.id === wgEditDay);
-  const adminPart = !admin ? '' : `
-  <h3>Control del jefe</h3>
-  <div class="card stack">
-    <label class="check" for="wgOpen"><input type="checkbox" id="wgOpen" ${g.signup_open ? 'checked' : ''}> <span>Inscripciones abiertas</span></label>
-    <label for="wgOutSel">Al pulsar «Eliminar», cuenta como eliminado en:<select id="wgOutSel">${days.slice().reverse().map(d => `<option value="${esc(d.id)}" ${(wgOutDay || (cur && cur.id)) === d.id ? 'selected' : ''}>${esc(d.game)} · ${fdate(d.day)}</option>`).join('') || '<option value="">Primero añade un juego</option>'}</select></label>
-    <div class="hint" style="margin:0">Los juegos con fecha futura solo los ves tú. Los chavales los verán ese día.</div>
-  </div>
-  <h3 id="hWgDay">${eD ? 'Editar juego' : 'Añadir juego del día'}</h3>
-  <form class="adm card${eD ? ' editing' : ''}" id="fWgDay">
-    <label for="wgDate">Día<input id="wgDate" type="date" required value="${esc(eD ? eD.day : today())}"></label>
-    <label for="wgGame">Nombre del juego<input id="wgGame" required maxlength="80" placeholder="Ej.: Luz roja, luz verde" value="${esc(eD ? eD.game : '')}"></label>
-    <label for="wgRules">Explicación y normas<textarea id="wgRules" rows="6" maxlength="3000" placeholder="Cómo se juega, qué está prohibido y cómo se elimina a los jugadores">${esc(eD ? eD.rules : '')}</textarea></label>
-    <div class="row-btns">${eD ? '<button type="button" class="btn ghost" data-wg="canceledit">Cancelar</button>' : ''}<button class="btn">${eD ? 'Guardar cambios' : 'Añadir juego'}</button></div>
-  </form>
-  <div class="stack">${days.slice().reverse().map(d => `<div class="item"><div class="info"><div class="t">${esc(d.game)}</div><div class="d">${wday(d.day)} ${fdate(d.day)}${d.day > today() ? ' · aún oculto' : ''} · ${outIn(d)} eliminados</div></div>
-    <div class="acts"><button class="btn small ghost" data-wgedit="${esc(d.id)}">Editar</button><button class="btn small warn" data-wgdel="${esc(d.id)}">${pendingDel === 'wg:' + d.id ? '¿Seguro?' : 'Quitar'}</button></div></div>`).join('')}</div>
-  <h3>Inscritos (${ps.length})</h3>
-  <div class="card"><ol class="wg-list">${(D.wgPlayers || []).map(p => `<li><span class="num">${wgNum(p.num)}</span> ${esc(p.name)}${p.left_at ? ' <small class="muted">· se salió</small>' : p.out_at ? ' <small class="muted">· eliminado</small>' : ''}</li>`).join('') || '<li class="muted">Nadie todavía.</li>'}</ol></div>`;
-  return `
-  <div class="wg-hero">
-    <div class="wg-logo">Wild Game</div>
-    <div class="wg-intro">${esc(g.intro || 'Muchos juegos, un solo superviviente.')}</div>
-    ${wgStart() ? `<div class="wg-start"><b>${esc(wgStart().txt)}</b><span>${wgStart().left}</span></div>` : ''}
-    <div class="wg-stats"><div><b class="num">${ps.length}</b><span>inscritos</span></div><div><b class="num">${alive.length}</b><span>quedan</span></div><div class="red"><b class="num">${out.length}</b><span>eliminados</span></div></div>
-    ${winner ? `<div class="wg-winner">${wgNum(winner.num)} ${esc(winner.name)} es el último superviviente</div>` : ''}
-    <div class="wg-status">${status}</div>
-  </div>
-  <h3>${!cur ? 'Los juegos' : cur.day === today() ? 'Juego de hoy' : 'Último juego'}</h3>
-  ${cur ? `<div class="card wg-game"><div class="d">${wday(cur.day)} ${fdate(cur.day)}</div><div class="t">${esc(cur.game)}</div><div class="rules">${esc(cur.rules) || '<span class="muted">Sin normas escritas.</span>'}</div></div>`
-        : `<div class="card"><div class="muted">${wgStart() ? esc(wgStart().txt) + '. El primer juego se anunciará ese día. ¡Atento!' : 'El primer juego se anunciará pronto. ¡Atento!'}</div></div>`}
-  ${past.length > 1 ? `<h3>Juegos anteriores</h3><div class="stack">${past.slice(0, -1).reverse().map(d => `<details class="card wg-prev"><summary><span>${esc(d.game)}</span><small>${fdate(d.day)} · ${outIn(d)} eliminados</small></summary><div class="rules">${esc(d.rules)}</div></details>`).join('')}</div>` : ''}
-  <h3>Jugadores</h3>
-  <div class="wg-grid">${sorted.map(tile).join('') || '<div class="muted">Todavía no se ha inscrito nadie.</div>'}</div>
-  ${adminPart}`;
-}
-async function wgAction(b, d) {
-  try {
-    if (d.wg === 'join') { const m = (D.wgPlayers || []).find(p => p.user_id === me().id); const n = await rpc(m ? 'wg_rejoin' : 'wg_join'); toast('¡Inscrito!', 'Eres el jugador ' + wgNum(n)); }
-    else if (d.wg === 'askleave') { wgConfirmLeave = true; return render(); }
-    else if (d.wg === 'noleave') { wgConfirmLeave = false; return render(); }
-    else if (d.wg === 'leave') { wgConfirmLeave = false; await rpc('wg_leave'); toast('Te has salido', 'Puedes volver a inscribirte mientras estén abiertas', true); }
-    else if (d.wg === 'canceledit') { wgEditDay = null; return render(); }
-    else if (d.wgedit) { wgEditDay = d.wgedit; render(); const h = $('#hWgDay'); if (h) h.scrollIntoView({ block: 'start' }); return; }
-    else if (d.wgdel) { if (pendingDel !== 'wg:' + d.wgdel) { pendingDel = 'wg:' + d.wgdel; return render(); } pendingDel = null; await q(sb.from('wg_days').delete().eq('id', d.wgdel)); toast('Quitado', 'Ese juego ya no aparece', true); }
-    else if (d.wgout) {
-      const day = ($('#wgOutSel') || {}).value; if (!day) return toast('Falta el juego', 'Añade primero el juego del día', true);
-      await q(sb.from('wg_players').update({ out_day: day, out_at: new Date().toISOString() }).eq('user_id', d.wgout)); toast('Eliminado', (wgDay(day) || {}).game || '', true);
-    }
-    else if (d.wgrev) { await q(sb.from('wg_players').update({ out_day: null, out_at: null }).eq('user_id', d.wgrev)); toast('Revivido', 'Vuelve a estar en juego'); }
-    b.disabled = true; await loadWild(); render();
-  } catch (e) { b.disabled = false; toast('No se ha podido', e.message, true); }
 }
 
 /* ---------- Trabajos del equipo ---------- */
@@ -1130,7 +1020,6 @@ document.addEventListener('click', async ev => {
   else if (d.cam === 'mon') openScanner(code => { $('#mCode').value = code; doMonScan(code); });
   else if (d.cam === 'canje') openScanner(code => { $('#cjCode').value = code; doCanje(code); });
   else if (d.task) { b.disabled = true; try { await rpc('mark_task', { p_id: d.task, p_done: d.done === '1' }); await load(); render(); if (d.done === '1') toast('¡Hecho!', 'Trabajo completado'); } catch (e) { toast('No se ha podido guardar', e.message, true); b.disabled = false; } }
-  else if (d.wg || d.wgedit || d.wgdel || d.wgout || d.wgrev) wgAction(b, d);
   else if (d.puesto) askPuesto(d.puesto);
   else if (d.rlog) showLog(d.rlog);
   else if (d.unlog) { b.disabled = true; try { await q(sb.from('staff_log').delete().eq('id', d.unlog)); toast('Quitado', 'Ya no cuenta en el registro', true); ranking = await rpc('staff_ranking', { p_year: rkYear }); render(); showLog(d.who); } catch (e) { toast('No se ha podido quitar', e.message, true); b.disabled = false; } }
@@ -1156,12 +1045,6 @@ document.addEventListener('input', ev => {
   const c = document.getElementById(t.dataset.for); if (c && t.value.trim()) c.checked = true;
 });
 document.addEventListener('change', ev => {
-  if (ev.target.id === 'wgOutSel' && D) { wgOutDay = ev.target.value; return; }
-  if (ev.target.id === 'wgOpen' && D) {
-    const wg = Object.assign({}, D.settings.wild_game, { signup_open: ev.target.checked });
-    q(sb.from('settings').update({ wild_game: wg }).eq('id', 1)).then(() => { D.settings.wild_game = wg; toast('Guardado', wg.signup_open ? 'Inscripciones abiertas' : 'Inscripciones cerradas'); render(); }, e => toast('No se ha podido guardar', e.message, true));
-    return;
-  }
   if (ev.target.id === 'mAct' && D) {
     monAct = ev.target.value; const merch = (earnById(monAct) || {}).kind === 'merch';
     ['mQtyBox'].forEach(id => { const el = $('#' + id); if (el) el.hidden = !merch; });
@@ -1261,13 +1144,6 @@ document.addEventListener('submit', async ev => {
       if (!base.activity || !base.day) throw new Error('Pon la actividad y la fecha.');
       await q(sb.from('staff_log').insert(who.map(w => ({ ...base, ...w }))));
       toast('Apuntado', `${who.length} persona${who.length > 1 ? 's' : ''} en ${base.activity}`);
-    }
-    else if (f.id === 'fWgDay') {
-      const data = { day: val(f, '#wgDate'), game: val(f, '#wgGame').trim(), rules: val(f, '#wgRules').trim() };
-      if (!data.day || !data.game) throw new Error('Pon el día y el nombre del juego.');
-      if (wgEditDay) await q(sb.from('wg_days').update(data).eq('id', wgEditDay)); else await q(sb.from('wg_days').insert(data));
-      toast(wgEditDay ? 'Guardado' : 'Juego añadido', data.day > today() ? 'Los chavales lo verán ese día' : 'Ya lo pueden ver');
-      wgEditDay = null; await load(); render(); return;
     }
     else if (f.id === 'fTeam') {
       const r = await rpc('admin_set_role', { p_code: val(f, '#tCode'), p_role: val(f, '#tRole') });

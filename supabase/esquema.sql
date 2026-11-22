@@ -739,3 +739,8 @@ alter table public.staff_log enable row level security;
 
 -- v13: staff_scan_merch(p_code, p_item, p_qty): registra varias unidades de merch
 -- (1 a 20) y permite varias compras el mismo día. Solo equipo.
+
+-- v14: Wild Game (evento temporal). settings.wild_game {active, signup_open, intro},
+-- tablas wg_days (juego de cada día) y wg_players (inscritos, eliminado en qué juego).
+-- Funciones wg_join, wg_leave, wg_rejoin (cada socio solo se inscribe o sale él mismo).
+-- Para quitarlo al acabar: update settings set wild_game = wild_game || '{"active": false}' where id = 1;

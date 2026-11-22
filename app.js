@@ -464,10 +464,16 @@ function wgCounts() {
 }
 const wgNum = n => '#' + String(n).padStart(3, '0');
 const wgDay = id => (D.wgDays || []).find(d => d.id === id);
+// Cuenta atrás hasta el inicio (settings.wild_game.start, AAAA-MM-DD).
+function wgStart() {
+  const st = (D.settings.wild_game || {}).start; if (!st || st < today()) return null;
+  const n = Math.round((new Date(st + 'T12:00') - new Date(today() + 'T12:00')) / 864e5);
+  return { st, n, txt: 'Empieza el ' + new Date(st + 'T12:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }), left: n === 0 ? '¡Empieza hoy!' : n === 1 ? '¡Empieza mañana!' : `Faltan ${n} días` };
+}
 function wildBanner() {
   const { ps, alive } = wgCounts(), mine = (D.wgPlayers || []).find(p => p.user_id === me().id && !p.left_at);
   return `<button class="wg-banner" data-tab="wild"><span class="wg-title">Wild Game</span>
-    <span class="wg-sub">${mine ? (mine.out_at ? 'Has sido eliminado. Sigue la partida.' : `Estás dentro · ${wgNum(mine.num)}`) : 'Inscríbete y aguanta hasta el final'}</span>
+    <span class="wg-sub">${wgStart() ? `${esc(wgStart().txt)} · ` : ''}${mine ? (mine.out_at ? 'Has sido eliminado. Sigue la partida.' : `Estás dentro · ${wgNum(mine.num)}`) : 'Inscríbete ya'}</span>
     <span class="wg-mini"><b>${alive.length}</b> quedan de ${ps.length}</span></button>`;
 }
 const BLOOD = '<svg class="blood" viewBox="0 0 120 60" aria-hidden="true"><path d="M8 30c10-6 22-4 34-8 10-3 18-12 30-10 12 2 22 10 38 8-12 6-22 4-34 10-10 5-16 12-30 12S22 34 8 30z"/><circle cx="96" cy="14" r="4"/><circle cx="20" cy="46" r="3"/><circle cx="62" cy="52" r="2.5"/><path d="M58 40c1 6 0 10-2 14-2-4-3-8-2-14z"/><path d="M84 38c1 4 0 7-1.5 9-1.5-2-2-5-1-9z"/></svg>';
@@ -513,13 +519,14 @@ function vWild() {
   <div class="wg-hero">
     <div class="wg-logo">Wild Game</div>
     <div class="wg-intro">${esc(g.intro || 'Muchos juegos, un solo superviviente.')}</div>
+    ${wgStart() ? `<div class="wg-start"><b>${esc(wgStart().txt)}</b><span>${wgStart().left}</span></div>` : ''}
     <div class="wg-stats"><div><b class="num">${ps.length}</b><span>inscritos</span></div><div><b class="num">${alive.length}</b><span>quedan</span></div><div class="red"><b class="num">${out.length}</b><span>eliminados</span></div></div>
     ${winner ? `<div class="wg-winner">${wgNum(winner.num)} ${esc(winner.name)} es el último superviviente</div>` : ''}
     <div class="wg-status">${status}</div>
   </div>
-  <h3>${cur && cur.day === today() ? 'Juego de hoy' : 'Último juego'}</h3>
+  <h3>${!cur ? 'Los juegos' : cur.day === today() ? 'Juego de hoy' : 'Último juego'}</h3>
   ${cur ? `<div class="card wg-game"><div class="d">${wday(cur.day)} ${fdate(cur.day)}</div><div class="t">${esc(cur.game)}</div><div class="rules">${esc(cur.rules) || '<span class="muted">Sin normas escritas.</span>'}</div></div>`
-        : '<div class="card"><div class="muted">El primer juego se anunciará pronto. ¡Atento!</div></div>'}
+        : `<div class="card"><div class="muted">${wgStart() ? esc(wgStart().txt) + '. El primer juego se anunciará ese día. ¡Atento!' : 'El primer juego se anunciará pronto. ¡Atento!'}</div></div>`}
   ${past.length > 1 ? `<h3>Juegos anteriores</h3><div class="stack">${past.slice(0, -1).reverse().map(d => `<details class="card wg-prev"><summary><span>${esc(d.game)}</span><small>${fdate(d.day)} · ${outIn(d)} eliminados</small></summary><div class="rules">${esc(d.rules)}</div></details>`).join('')}</div>` : ''}
   <h3>Jugadores</h3>
   <div class="wg-grid">${sorted.map(tile).join('') || '<div class="muted">Todavía no se ha inscrito nadie.</div>'}</div>

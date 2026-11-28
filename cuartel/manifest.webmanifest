@@ -1,0 +1,17 @@
+{
+  "name": "Cuartel general · The Wild Side",
+  "short_name": "Cuartel TWS",
+  "description": "Gestión interna de The Wild Side: merch, caja, deudas y conquista de Huelva.",
+  "lang": "es",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f2f5f1",
+  "theme_color": "#0b0f0c",
+  "icons": [
+    { "src": "../img/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "../img/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "../img/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

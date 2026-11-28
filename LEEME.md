@@ -142,6 +142,7 @@ Queda con el icono de The Wild Side y se abre a pantalla completa, como una app.
 | `manifest.webmanifest`, `sw.js` | Para que se pueda instalar en el móvil |
 | `legal.html` | Bases del programa y política de privacidad (borrador) |
 | `img/` | Logo, iconos y fotos |
+| `cuartel/` | Cuartel general: app interna del jefe (merch, caja, deudas y mapa de Huelva). Ver `cuartel/LEEME.md` |
 | `supabase/esquema.sql` | Base de datos completa, para pegar en Supabase |
 
 Cada vez que se publiquen cambios en la app, sube el número de `VERSION` en `sw.js` para que los móviles descarguen la versión nueva.
